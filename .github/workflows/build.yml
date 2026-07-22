@@ -1,78 +1,70 @@
 name: Build SingVPN APK/AAB
-
 on:
-  push:
-    branches: [ "main", "master" ]
+  push: { branches: [main, master] }
   workflow_dispatch:
-
+env:
+  ANDROID_SDK_ROOT: /opt/android-sdk
+  ANDROID_HOME: /opt/android-sdk
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout sing-box core
-        uses: actions/checkout@v4
-        with:
-          repository: Agro-bot2026/sing-box
-          path: sing-box
+      - uses: actions/checkout@v4
+        with: { path: signvpn }
 
-      - name: Checkout sing-box-for-android
-        uses: actions/checkout@v4
-        with:
-          repository: Agro-bot2026/sing-box-for-android
-          path: sing-box-for-android
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.25' }
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.25'
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
+      - uses: android-actions/setup-android@v3
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Clone sing-box core
+        run: |
+          git clone --depth 1 https://github.com/SagerNet/sing-box.git /tmp/sing-box
+          cp -r ${{ github.workspace }}/signvpn/protocol/* /tmp/sing-box/protocol/
+
+      - name: Clone sing-box-for-android
+        run: git clone --depth 1 https://github.com/SagerNet/sing-box-for-android.git /tmp/sb-android
 
       - name: Setup gomobile
         run: |
-          cd sing-box
+          cd /tmp/sing-box
           go get -tool golang.org/x/mobile/cmd/gobind
           go install golang.org/x/mobile/cmd/gomobile@latest
           go install golang.org/x/mobile/cmd/gobind@latest
-          export PATH=$PATH:$(go env GOPATH)/bin
           gomobile init
+
+      - name: Patch sing-box for Go 1.25
+        run: bash ${{ github.workspace }}/signvpn/scripts/patch-singbox.sh
 
       - name: Build AAR
         run: |
-          export PATH=$PATH:$(go env GOPATH)/bin
-          cd sing-box
-          gomobile bind -v -target=android/arm64,android/arm,android/amd64,android/386 \
+          cd /tmp/sing-box
+          gomobile bind -v -target=android/arm64 \
             -androidapi 21 \
             -tags="with_quic,with_utls,with_clash_api,with_gvisor,with_dhcp" \
-            -o ../sing-box-for-android/app/libs/singbox.aar \
+            -o /tmp/sb-android/app/libs/singbox.aar \
             github.com/sagernet/sing-box/experimental/libbox
 
-      - name: Build APK (debug)
+      - name: Build APK
         run: |
-          cd sing-box-for-android
+          cd /tmp/sb-android
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: Build AAB (release)
+      - name: Build AAB
         run: |
-          cd sing-box-for-android
+          cd /tmp/sb-android
           ./gradlew bundleDebug
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: SingVPN-APK
-          path: sing-box-for-android/app/build/outputs/apk/debug/*.apk
+          path: /tmp/sb-android/app/build/outputs/apk/debug/*.apk
 
-      - name: Upload AAB
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: SingVPN-AAB
-          path: sing-box-for-android/app/build/outputs/bundle/debug/*.aab
+          path: /tmp/sb-android/app/build/outputs/bundle/debug/*.aab
