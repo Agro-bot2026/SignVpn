@@ -76,9 +76,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: SingVPN-APK
-          path: /tmp/sb-android/app/build/outputs/apk/debug/*.apk
+          path: /tmp/sb-android/app/build/outputs/apk/**/debug/*.apk
 
       - uses: actions/upload-artifact@v4
         with:
           name: SingVPN-AAB
-          path: /tmp/sb-android/app/build/outputs/bundle/debug/*.aab
+          path: /tmp/sb-android/app/build/outputs/bundle/**/debug/*.aab
