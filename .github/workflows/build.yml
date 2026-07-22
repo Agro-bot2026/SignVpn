@@ -50,7 +50,7 @@ jobs:
           gomobile bind -v -target=android/arm64 \
             -androidapi 21 \
             -tags="with_quic,with_utls,with_clash_api,with_gvisor,with_dhcp" \
-            -o /tmp/sb-android/app/libs/singbox.aar \
+            -o /tmp/sb-android/app/libs/libbox.aar \
             github.com/sagernet/sing-box/experimental/libbox
 
       - name: Build APK
