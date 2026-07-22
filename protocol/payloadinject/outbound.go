@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/sagernet/sing-box/adapter"
@@ -27,14 +28,14 @@ func RegisterOutbound(registry *outbound.Registry) {
 
 type Outbound struct {
 	outbound.Adapter
-	ctx        context.Context
-	logger     logger.ContextLogger
-	dialer     N.Dialer
-	serverAddr M.Socksaddr
-	user       string
-	password   string
-	payload    string
-	skipBytes  int
+	ctx           context.Context
+	logger        logger.ContextLogger
+	dialer        N.Dialer
+	serverAddr    M.Socksaddr
+	user          string
+	password      string
+	customPayload string
+	skipBytes     int
 }
 
 func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.PayloadInjectOutboundOptions) (adapter.Outbound, error) {
@@ -42,92 +43,99 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 	if err != nil {
 		return nil, err
 	}
-	payload := options.Payload
-	if payload == "" {
-		payload = "101"
+	cp := options.CustomPayload
+	if cp == "" {
+		cp = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\nHTTP/1.1 200 Connection Established\r\n\r\n"
 	}
 	return &Outbound{
-		Adapter:    outbound.NewAdapter(C.TypePayloadInject, tag, []string{N.NetworkTCP}, options.DialerOptions),
-		ctx:        ctx,
-		logger:     logger,
-		dialer:     outboundDialer,
-		serverAddr: options.ServerOptions.Build(),
-		user:       options.User,
-		password:   options.Password,
-		payload:    payload,
-		skipBytes:  options.SkipBytes,
+		Adapter:       outbound.NewAdapter(C.TypePayloadInject, tag, []string{N.NetworkTCP}, options.DialerOptions),
+		ctx:           ctx,
+		logger:        logger,
+		dialer:        outboundDialer,
+		serverAddr:    options.ServerOptions.Build(),
+		user:          options.User,
+		password:      options.Password,
+		customPayload: cp,
+		skipBytes:     options.SkipBytes,
 	}, nil
 }
 
 func (o *Outbound) DialContext(ctx context.Context, network string, destination M.Socksaddr) (net.Conn, error) {
-	conn, err := o.dialer.DialContext(ctx, N.NetworkTCP, o.serverAddr)
-	if err != nil {
-		return nil, err
-	}
-	// Hacemos el handshake HTTP con el cliente vía la conexión entrante
-	// NOTA: En sing-box, este outbound recibe tráfico ya ruteado.
-	// El payload injection se maneja como un transporte,
-	// no como un reemplazo del handshake.
-	return conn, nil
+	return o.dialer.DialContext(ctx, N.NetworkTCP, o.serverAddr)
 }
 
 func (o *Outbound) ListenPacket(ctx context.Context, destination M.Socksaddr) (net.PacketConn, error) {
 	return nil, os.ErrInvalid
 }
 
-func (o *Outbound) InterfaceUpdated() {
-	// No-op
-}
+func (o *Outbound) InterfaceUpdated() { common.Close(o) }
+func (o *Outbound) Close() error      { return nil }
 
-func (o *Outbound) Close() error {
-	return nil
-}
-
-// PayloadInjectConn envuelve una conexión con el handshake HTTP 101/200
+// PayloadInjectConn maneja el handshake HTTP personalizado
 type PayloadInjectConn struct {
 	net.Conn
-	payload   string
-	skipBytes int
-	handshake bool
+	customPayload string
+	skipBytes     int
+	handshake     bool
+	host          string
+	port          string
+	method        string
 }
 
-func NewPayloadInjectConn(conn net.Conn, payload string, skipBytes int) *PayloadInjectConn {
+func NewPayloadInjectConn(conn net.Conn, customPayload string, skipBytes int, host string, port string) *PayloadInjectConn {
+	method := "GET"
+	if strings.HasPrefix(customPayload, "CONNECT") {
+		method = "CONNECT"
+	} else if strings.HasPrefix(customPayload, "POST") {
+		method = "POST"
+	}
 	return &PayloadInjectConn{
-		Conn:      conn,
-		payload:   payload,
-		skipBytes: skipBytes,
+		Conn:          conn,
+		customPayload: customPayload,
+		skipBytes:     skipBytes,
+		host:          host,
+		port:          port,
+		method:        method,
 	}
 }
 
+// RenderPayload reemplaza variables en el payload y envía
+func (c *PayloadInjectConn) RenderPayload() (string, error) {
+	p := c.customPayload
+
+	// Reemplazar variables
+	p = strings.ReplaceAll(p, "[host]", c.host)
+	p = strings.ReplaceAll(p, "[port]", c.port)
+	p = strings.ReplaceAll(p, "[method]", c.method)
+	p = strings.ReplaceAll(p, "[crlf]", "\r\n")
+	p = strings.ReplaceAll(p, "[lf]", "\n")
+
+	// Soporte para [split]
+	if strings.Contains(p, "[split]") {
+		parts := strings.Split(p, "[split]")
+		p = parts[0]
+	}
+
+	return p, nil
+}
+
+// Handshake realiza el handshake HTTP personalizado y skipea bytes si es necesario
 func (c *PayloadInjectConn) Handshake() error {
 	if c.handshake {
 		return nil
 	}
 	c.Conn.SetDeadline(time.Now().Add(15 * time.Second))
 
-	// 1. Leer request HTTP del cliente
-	reader := bufio.NewReader(c.Conn)
-	req, err := http.ReadRequest(reader)
+	// 1. Renderizar y enviar payload
+	payload, err := c.RenderPayload()
 	if err != nil {
 		return err
 	}
-	_ = req
-
-	// 2. Enviar payload 101
-	var respPayload string
-	if c.payload == "101" {
-		respPayload = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n"
-	} else {
-		respPayload = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n"
-	}
-	// Siempre enviamos 200 adicional después
-	respPayload += "HTTP/1.1 200 Connection Established\r\n\r\n"
-
-	if _, err := c.Conn.Write([]byte(respPayload)); err != nil {
+	if _, err := c.Conn.Write([]byte(payload)); err != nil {
 		return err
 	}
 
-	// 3. Skiping de bytes si hace falta
+	// 2. Skiping de bytes si hace falta
 	if c.skipBytes > 0 {
 		tmp := make([]byte, c.skipBytes)
 		c.Conn.SetReadDeadline(time.Now().Add(3 * time.Second))
@@ -135,14 +143,28 @@ func (c *PayloadInjectConn) Handshake() error {
 		c.Conn.SetReadDeadline(time.Time{})
 	}
 
-	// 4. Drenar buffer del reader
-	if reader.Buffered() > 0 {
-		buf := make([]byte, reader.Buffered())
-		reader.Read(buf)
-		// Escribir al destino real (se hace fuera)
-	}
-
 	c.Conn.SetDeadline(time.Time{})
 	c.handshake = true
 	return nil
+}
+
+// DialPayloadInject es función helper para hacer el handshake completo desde un dial
+func DialPayloadInject(ctx context.Context, dialer N.Dialer, serverAddr M.Socksaddr, customPayload string, skipBytes int) (net.Conn, error) {
+	conn, err := dialer.DialContext(ctx, N.NetworkTCP, serverAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	host := serverAddr.AddrString()
+	port := "80"
+	if serverAddr.Port > 0 {
+		port = M.PortToString(serverAddr)
+	}
+
+	pic := NewPayloadInjectConn(conn, customPayload, skipBytes, host, port)
+	if err := pic.Handshake(); err != nil {
+		conn.Close()
+		return nil, err
+	}
+	return conn, nil
 }

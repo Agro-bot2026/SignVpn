@@ -61,7 +61,7 @@ type PayloadInjectOutboundOptions struct {
 	ServerOptions
 	User       string `json:"user,omitempty"`
 	Password   string `json:"password,omitempty"`
-	Payload    string `json:"payload,omitempty"`
+	CustomPayload string `json:"custom_payload,omitempty"`
 	SkipBytes  int    `json:"skip_bytes,omitempty"`
 }
 GOEOF
