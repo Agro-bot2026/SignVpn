@@ -23,6 +23,7 @@ type stackRecord struct {
 	Stack0 [32]uintptr
 }
 
+func WriteFile(destPath string, name string) (string, error) { return "", nil }
 func runtimeMemProfileInternal(p []memProfileRecord, inuseZero bool) (n int, ok bool) { return 0, false }
 func runtimeBlockProfileInternal(p []blockProfileRecord) (n int, ok bool) { return 0, false }
 func runtimeMutexProfileInternal(p []blockProfileRecord) (n int, ok bool) { return 0, false }
