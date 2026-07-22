@@ -20,6 +20,10 @@ jobs:
 
       - uses: android-actions/setup-android@v3
 
+      - name: Install Android platform
+        run: |
+          yes | sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+
       - name: Clone sing-box core
         run: |
           git clone --depth 1 https://github.com/SagerNet/sing-box.git /tmp/sing-box
