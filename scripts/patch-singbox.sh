@@ -8,6 +8,21 @@ cat > /tmp/sing-box/experimental/libbox/internal/oomprofile/linkname.go << 'GOEO
 //go:build darwin || linux || windows
 package oomprofile
 import ("runtime"; "unsafe")
+
+type memProfileRecord struct {
+	AllocBytes, FreeBytes     int64
+	AllocObjects, FreeObjects int64
+	Stack0                    [32]uintptr
+}
+type blockProfileRecord struct {
+	Count  int64
+	Cycles int64
+	Stack0 [32]uintptr
+}
+type stackRecord struct {
+	Stack0 [32]uintptr
+}
+
 func runtimeMemProfileInternal(p []memProfileRecord, inuseZero bool) (n int, ok bool) { return 0, false }
 func runtimeBlockProfileInternal(p []blockProfileRecord) (n int, ok bool) { return 0, false }
 func runtimeMutexProfileInternal(p []blockProfileRecord) (n int, ok bool) { return 0, false }
