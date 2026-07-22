@@ -41,6 +41,7 @@ jobs:
 
       - name: Build AAR
         run: |
+          mkdir -p /tmp/sb-android/app/libs
           cd /tmp/sing-box
           gomobile bind -v -target=android/arm64 \
             -androidapi 21 \
