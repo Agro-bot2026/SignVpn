@@ -43,14 +43,21 @@ jobs:
       - name: Patch sing-box for Go 1.25
         run: bash ${{ github.workspace }}/signvpn/scripts/patch-singbox.sh
 
-      - name: Build AAR
+      - name: Build AARs
         run: |
           mkdir -p /tmp/sb-android/app/libs
           cd /tmp/sing-box
+          # Build normal AAR (used by play + other flavors, minSdk 23)
+          gomobile bind -v -target=android/arm64 \
+            -androidapi 23 \
+            -tags="with_quic,with_utls,with_clash_api,with_gvisor,with_dhcp" \
+            -o /tmp/sb-android/app/libs/libbox.aar \
+            github.com/sagernet/sing-box/experimental/libbox
+          # Build legacy AAR (used by otherLegacy flavor, minSdk 21)
           gomobile bind -v -target=android/arm64 \
             -androidapi 21 \
             -tags="with_quic,with_utls,with_clash_api,with_gvisor,with_dhcp" \
-            -o /tmp/sb-android/app/libs/libbox.aar \
+            -o /tmp/sb-android/app/libs/libbox-legacy.aar \
             github.com/sagernet/sing-box/experimental/libbox
 
       - name: Build APK
