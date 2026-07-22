@@ -1,0 +1,78 @@
+name: Build SingVPN APK/AAB
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sing-box core
+        uses: actions/checkout@v4
+        with:
+          repository: Agro-bot2026/sing-box
+          path: sing-box
+
+      - name: Checkout sing-box-for-android
+        uses: actions/checkout@v4
+        with:
+          repository: Agro-bot2026/sing-box-for-android
+          path: sing-box-for-android
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup gomobile
+        run: |
+          cd sing-box
+          go get -tool golang.org/x/mobile/cmd/gobind
+          go install golang.org/x/mobile/cmd/gomobile@latest
+          go install golang.org/x/mobile/cmd/gobind@latest
+          export PATH=$PATH:$(go env GOPATH)/bin
+          gomobile init
+
+      - name: Build AAR
+        run: |
+          export PATH=$PATH:$(go env GOPATH)/bin
+          cd sing-box
+          gomobile bind -v -target=android/arm64,android/arm,android/amd64,android/386 \
+            -androidapi 21 \
+            -tags="with_quic,with_utls,with_clash_api,with_gvisor,with_dhcp" \
+            -o ../sing-box-for-android/app/libs/singbox.aar \
+            github.com/sagernet/sing-box/experimental/libbox
+
+      - name: Build APK (debug)
+        run: |
+          cd sing-box-for-android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Build AAB (release)
+        run: |
+          cd sing-box-for-android
+          ./gradlew bundleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SingVPN-APK
+          path: sing-box-for-android/app/build/outputs/apk/debug/*.apk
+
+      - name: Upload AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: SingVPN-AAB
+          path: sing-box-for-android/app/build/outputs/bundle/debug/*.aab
