@@ -62,6 +62,15 @@ jobs:
             -o /tmp/sb-android/app/libs/libbox-legacy.aar \
             github.com/sagernet/sing-box/experimental/libbox
 
+      - name: Customize app icon and name
+        run: |
+          # Copy GhostVpn icon
+          cp ${{ github.workspace }}/signvpn/android/app/src/main/res/drawable/ghostvpn_icon.png \
+             /tmp/sb-android/app/src/main/res/drawable/ghostvpn_icon.png 2>/dev/null || true
+          # Change app label and icon in AndroidManifest
+          sed -i 's/android:label="[^"]*"/android:label="GhostVpn"/' /tmp/sb-android/app/src/main/AndroidManifest.xml
+          sed -i 's|android:icon="[^"]*"|android:icon="@drawable/ghostvpn_icon"|' /tmp/sb-android/app/src/main/AndroidManifest.xml
+
       - name: Build APK
         run: |
           cd /tmp/sb-android
