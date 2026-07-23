@@ -3,7 +3,6 @@ package payloadinject
 import (
 	"context"
 	"fmt"
-	"io"
 	"math/rand"
 	"net"
 	"os"
@@ -172,39 +171,38 @@ func (c *PayloadInjectConn) sendRaw(data string) error {
 	return err
 }
 
-// readUntil busca una subcadena en el flujo de respuesta SIN buffer extra
-// Lee raw bytes del socket y los descarta (la respuesta HTTP no nos interesa),
-// pero NO absorbe bytes del SSH que vienen después.
-func (c *PayloadInjectConn) readUntil(target string, timeout time.Duration) error {
+// consumeHTTPResponse lee una respuesta HTTP completa (hasta \r\n\r\n) del socket
+// Deja cualquier dato posterior (como banner SSH) intacto en el socket
+func (c *PayloadInjectConn) consumeHTTPResponse(timeout time.Duration) error {
 	c.Conn.SetReadDeadline(time.Now().Add(timeout))
 	defer c.Conn.SetReadDeadline(time.Time{})
-	// Leer byte a byte para no absorber de más
 	var buf [1]byte
-	var match strings.Builder
+	var data strings.Builder
+	crlfCount := 0
 	for {
 		_, err := c.Conn.Read(buf[:])
 		if err != nil {
 			return err
 		}
-		match.Write(buf[:])
-		if strings.Contains(match.String(), target) {
+		data.Write(buf[:])
+		if buf[0] == '\r' || buf[0] == '\n' {
+			crlfCount++
+		} else {
+			crlfCount = 0
+		}
+		// Doble CRLF = fin de HTTP headers
+		if crlfCount >= 4 {
 			return nil
 		}
-		// Mantener solo los últimos 20 bytes para el matching
-		if match.Len() > 20 {
-			discard := match.Len() - 20
-			_ = discard // simplemente limitamos el escaneo
-		}
-		// Si es demasiado largo, salimos
-		if match.Len() > 65536 {
+		if data.Len() > 65536 {
 			return nil
 		}
 	}
 }
 
 // Handshake ejecuta el payload completo con soporte [split]
-// [split] = envía parte 1, lee respuesta del proxy, envía parte 2
-// LEE SOLO la respuesta HTTP (200 OK), NO absorbe bytes SSH
+// Envía TODO el payload de una vez, consume respuestas HTTP,
+// y deja el banner SSH intacto en el socket
 func (c *PayloadInjectConn) Handshake() error {
 	if c.handshake {
 		return nil
@@ -214,51 +212,30 @@ func (c *PayloadInjectConn) Handshake() error {
 
 	rendered := c.render(c.rawPayload)
 
-	// Si tiene [split], es doble payload
-	if strings.Contains(rendered, "[split]") {
-		parts := strings.SplitN(rendered, "[split]", 2)
-		part1 := parts[0]
-		part2 := parts[1]
+	// Enviar TODO el payload de una vez (como HTTP Custom)
+	if _, err := c.Conn.Write([]byte(rendered)); err != nil {
+		return fmt.Errorf("send payload: %w", err)
+	}
 
-		// Enviar parte 1 (ej: CONNECT)
-		if err := c.sendRaw(part1); err != nil {
-			return fmt.Errorf("send part1: %w", err)
-		}
-
-		// Leer respuesta del proxy (200 Connection Established)
-		// Lee SOLO bytes HTTP, NO toca datos SSH que vengan después
-		if err := c.readUntil("200", 5*time.Second); err != nil {
-			return fmt.Errorf("read 200 part1: %w", err)
-		}
-
-		// Enviar parte 2 (ej: WebSocket upgrade)
-		if err := c.sendRaw(part2); err != nil {
-			return fmt.Errorf("send part2: %w", err)
-		}
-
-		// Leer respuesta del upgrade (200 OK)
-		if err := c.readUntil("200", 5*time.Second); err != nil {
-			// Si falla, puede que ya haya recibido el banner SSH - intentamos igual
-			return nil
-		}
-	} else {
-		// Payload único
-		if err := c.sendRaw(rendered); err != nil {
-			return fmt.Errorf("send payload: %w", err)
-		}
-
-		// Leer respuesta HTTP
-		if err := c.readUntil("200", 5*time.Second); err != nil {
-			return fmt.Errorf("read 200: %w", err)
-		}
+	// Consumir respuestas HTTP hasta doble CRLF (1 o 2 respuestas)
+	// El proxy responde 101 + 200 + SSH banner. Consumimos solo el HTTP.
+	if err := c.consumeHTTPResponse(10 * time.Second); err != nil {
+		return fmt.Errorf("consume http 1: %w", err)
+	}
+	// Puede haber una segunda respuesta HTTP (101 + 200)
+	if err := c.consumeHTTPResponse(3 * time.Second); err != nil {
+		// Si no hay segunda, es porque ya viene el SSH banner
 	}
 
 	// Skip bytes opcional
 	if c.skipBytes > 0 {
 		tmp := make([]byte, c.skipBytes)
 		c.Conn.SetReadDeadline(time.Now().Add(3 * time.Second))
-		io.ReadFull(c.Conn, tmp)
-		c.Conn.SetReadDeadline(time.Time{})
+		defer c.Conn.SetReadDeadline(time.Time{})
+		_, err := c.Conn.Read(tmp)
+		if err != nil {
+			return fmt.Errorf("skip bytes: %w", err)
+		}
 	}
 
 	c.handshake = true
