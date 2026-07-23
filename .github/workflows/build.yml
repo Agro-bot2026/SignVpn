@@ -39,6 +39,7 @@ jobs:
         run: |
           mkdir -p /tmp/ghostvpn
           cp -r ghostvpn/* /tmp/ghostvpn/
+          mkdir -p /tmp/ghostvpn/app/libs
           cp /tmp/libbox.aar /tmp/ghostvpn/app/libs/
           cd /tmp/ghostvpn
           curl -sL https://services.gradle.org/distributions/gradle-8.5-bin.zip -o /tmp/gradle8.zip
