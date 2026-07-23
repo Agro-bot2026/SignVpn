@@ -60,7 +60,25 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 }
 
 func (o *Outbound) DialContext(ctx context.Context, network string, destination M.Socksaddr) (net.Conn, error) {
-	return o.dialer.DialContext(ctx, N.NetworkTCP, o.serverAddr)
+	conn, err := o.dialer.DialContext(ctx, N.NetworkTCP, o.serverAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	// Hacer el handshake HTTP con payload personalizado
+	host := o.serverAddr.AddrString()
+	port := "80"
+	if o.serverAddr.Port > 0 {
+		port = M.PortToString(o.serverAddr)
+	}
+
+	pic := NewPayloadInjectConn(conn, o.customPayload, o.skipBytes, host, port)
+	if err := pic.Handshake(); err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("payload handshake: %w", err)
+	}
+
+	return conn, nil
 }
 
 func (o *Outbound) ListenPacket(ctx context.Context, destination M.Socksaddr) (net.PacketConn, error) {
