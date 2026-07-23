@@ -87,55 +87,159 @@ if ! grep -q "payloadinject" "$REGISTRY" 2>/dev/null; then
   echo "[+] Registered custom protocols in include/registry.go"
 fi
 
-# ===== 5. Add HTTP Custom tunnel integration in libbox =====
-cat > $SINGBOX/experimental/libbox/httpcustom_bridge.go << 'GOEOF'
+# ===== 5. Add HTTP Custom tunnel in libbox =====
+cat > $SINGBOX/experimental/libbox/httpcustom.go << 'GOEOF'
 package libbox
 
 import (
+	"fmt"
+	"math/rand"
 	"net"
+	"strings"
 	"sync"
-	"github.com/sagernet/sing-box/protocol/httpcustom"
+	"time"
+
+	"golang.org/x/crypto/ssh"
 )
 
 var (
-	activeTunnel   *httpcustom.Tunnel
-	activeTunnelMu sync.Mutex
-	tunnelListener net.Listener
+	activeSSHClient   *ssh.Client
+	activeListener    net.Listener
+	muTunnel          sync.Mutex
+	stopTunnelCh      chan struct{}
 )
 
-func StartHTTPCustomTunnel(server string, port int, payload string, user, password string, skipBytes int, localSocksAddr string) error {
-	t := httpcustom.NewTunnel(server, port, payload, user, password, skipBytes)
-	if err := t.Connect(); err != nil {
-		return err
-	}
-	ln, err := net.Listen("tcp", localSocksAddr)
-	if err != nil {
-		t.Close()
-		return err
-	}
-	activeTunnelMu.Lock()
-	if activeTunnel != nil { activeTunnel.Close() }
-	activeTunnel = t
-	tunnelListener = ln
-	activeTunnelMu.Unlock()
-	go func() {
-		for {
-			conn, err := ln.Accept()
-			if err != nil { return }
-			go func(c net.Conn) {
-				defer c.Close()
-				// SOCKS5 local handler - forward via SSH tunnel
-			}(conn)
-		}
-	}()
-	return nil
+//export StartHTTPCustomTunnel
+func StartHTTPCustomTunnel(server string, port int, user string, password string, payload string, socksPort int) error {
+    cb := &tunnelLogger{}
+    return startTunnel(server, port, user, password, payload, socksPort, cb)
 }
 
+//export StopHTTPCustomTunnel  
 func StopHTTPCustomTunnel() {
-	activeTunnelMu.Lock()
-	defer activeTunnelMu.Unlock()
-	if activeTunnel != nil { activeTunnel.Close(); activeTunnel = nil }
-	if tunnelListener != nil { tunnelListener.Close(); tunnelListener = nil }
+    muTunnel.Lock()
+    defer muTunnel.Unlock()
+    if stopTunnelCh != nil {
+        close(stopTunnelCh)
+        stopTunnelCh = nil
+    }
+    if activeListener != nil {
+        activeListener.Close()
+        activeListener = nil
+    }
+    if activeSSHClient != nil {
+        activeSSHClient.Close()
+        activeSSHClient = nil
+    }
+}
+
+type tunnelLogger struct{}
+func (t *tunnelLogger) log(msg string) { fmt.Println("[HC]", msg) }
+func (t *tunnelLogger) Log(msg string) { t.log(msg) }
+
+func startTunnel(server string, port int, user, password, payload string, socksPort int, log interface{ Log(string) }) error {
+    addr := fmt.Sprintf("%s:%d", server, port)
+    conn, err := net.DialTimeout("tcp", addr, 15*time.Second)
+    if err != nil { return fmt.Errorf("conexion: %w", err) }
+
+    rendered := renderPayload(payload, server, fmt.Sprintf("%d", port))
+    conn.Write([]byte(rendered))
+
+    if err := consumeHTTP(conn, 10*time.Second); err != nil { conn.Close(); return fmt.Errorf("http: %w", err) }
+    consumeHTTP(conn, 3*time.Second) // 200
+
+    sshCfg := &ssh.ClientConfig{
+        User: user,
+        Auth: []ssh.AuthMethod{ssh.Password(password)},
+        HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+        Timeout: 15*time.Second,
+    }
+    sshCon, chans, reqs, err := ssh.NewClientConn(conn, addr, sshCfg)
+    if err != nil { conn.Close(); return fmt.Errorf("ssh: %w", err) }
+    client := ssh.NewClient(sshCon, chans, reqs)
+
+    ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", socksPort))
+    if err != nil { client.Close(); return fmt.Errorf("socks: %w", err) }
+
+    muTunnel.Lock()
+    activeSSHClient = client
+    activeListener = ln
+    stopTunnelCh = make(chan struct{})
+    muTunnel.Unlock()
+
+    go func() {
+        for {
+            select {
+            case <-stopTunnelCh: return
+            default:
+            }
+            c, err := ln.Accept()
+            if err != nil { return }
+            go handleSocks5(c, client)
+        }
+    }()
+    return nil
+}
+
+func renderPayload(template, host, port string) string {
+    p := template
+    rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+    for _, marker := range []string{"[rotate=", "[random="} {
+        for {
+            start := strings.Index(p, marker)
+            if start == -1 { break }
+            end := strings.Index(p[start:], "]")
+            if end == -1 { break }
+            end += start
+            inner := p[start+len(marker):end]
+            choices := strings.Split(inner, ";")
+            p = p[:start] + choices[rng.Intn(len(choices))] + p[end+1:]
+        }
+    }
+    reps := map[string]string{
+        "[host]": host, "[port]": port, "[host_port]": host+":"+port,
+        "[method]": "CONNECT", "[protocol]": "HTTP/1.0", "[ssh]": "22",
+        "[crlf]": "\r\n", "[lf]": "\n", "[cr]": "\r", "[lfcr]": "\n\r",
+        "[ua]": "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36",
+    }
+    for k, v := range reps { p = strings.ReplaceAll(p, k, v) }
+    return p
+}
+
+func consumeHTTP(conn net.Conn, timeout time.Duration) error {
+    conn.SetReadDeadline(time.Now().Add(timeout))
+    defer conn.SetReadDeadline(time.Time{})
+    var buf [1]byte; var data strings.Builder; crlfCount := 0
+    for {
+        _, err := conn.Read(buf[:])
+        if err != nil { return err }
+        data.Write(buf[:])
+        if buf[0]=='\r'||buf[0]=='\n' { crlfCount++ } else { crlfCount=0 }
+        if crlfCount >= 4 { return nil }
+        if data.Len() > 65536 { return nil }
+    }
+}
+
+func handleSocks5(local net.Conn, client *ssh.Client) {
+    defer local.Close()
+    buf := make([]byte, 2)
+    if _, err := local.Read(buf); err != nil { return }
+    nMethods := int(buf[1])
+    if nMethods > 0 { methods := make([]byte, nMethods); local.Read(methods) }
+    local.Write([]byte{0x05, 0x00})
+    header := make([]byte, 4)
+    if _, err := local.Read(header); err != nil { return }
+    atyp := header[3]
+    var host string; var port int
+    if atyp == 0x01 { ip := make([]byte,4); local.Read(ip); host = net.IP(ip).String() }
+    if atyp == 0x03 { buf=make([]byte,1); local.Read(buf); l:=int(buf[0]); d:=make([]byte,l); local.Read(d); host=string(d) }
+    buf=make([]byte,2); local.Read(buf); port=int(buf[0])<<8|int(buf[1])
+    remote, err := client.Dial("tcp", fmt.Sprintf("%s:%d", host, port))
+    if err != nil { local.Write([]byte{0x05,0x04,0x00,0x01,0,0,0,0,0,0}); return }
+    defer remote.Close()
+    local.Write([]byte{0x05,0x00,0x00,0x01,0,0,0,0,0,0})
+    go func() { buf:=make([]byte,32768); for{n,_:=local.Read(buf);if n==0{return};remote.Write(buf[:n])} }()
+    buf2:=make([]byte,32768); for{n,_:=remote.Read(buf2);if n==0{return};local.Write(buf2[:n])}
 }
 GOEOF
 echo "[+] Added HTTP Custom tunnel in libbox"
