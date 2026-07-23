@@ -181,8 +181,8 @@ func (c *PayloadInjectConn) Handshake() error {
 			return fmt.Errorf("send part2: %w", err)
 		}
 
-		// Leer respuesta del upgrade (101 Switching Protocols)
-		c.readUntil("101", 5*time.Second)
+		// Leer respuesta del upgrade (200 OK)
+		c.readUntil("200", 5*time.Second)
 	} else {
 		// Payload único
 		if err := c.sendRaw(rendered); err != nil {
