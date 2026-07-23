@@ -30,7 +30,6 @@ jobs:
       - name: Build tunnel AAR
         run: |
           cd ${{ github.workspace }}/signvpn/tunnel
-          go get -tool golang.org/x/mobile/cmd/gobind
           go mod tidy
           cd ${{ github.workspace }}/signvpn
           gomobile bind -v -target=android/arm64 -androidapi 21 \
