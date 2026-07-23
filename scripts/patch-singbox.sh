@@ -78,15 +78,18 @@ GOEOF
 
 echo "[+] Added custom option structs"
 
-# ===== 4. Import custom protocols in protocol/registry.go =====
-REGISTRY=$SINGBOX/protocol/registry.go
+# ===== 4. Import and register custom protocols in include/registry.go =====
+REGISTRY=$SINGBOX/include/registry.go
 if ! grep -q "payloadinject" $REGISTRY 2>/dev/null; then
   # Add imports
-  sed -i '/^import (/,/^)/ {
-    /"github.com\/sagernet\/sing-box\/protocol\/ssh"/a\
-\t_ "github.com/sagernet/sing-box/protocol/payloadinject"\n\t_ "github.com/sagernet/sing-box/protocol/badvpn"
-  }' $REGISTRY 2>/dev/null || true
-  echo "[+] Registered custom protocols in registry"
+  sed -i '/"github.com\/sagernet\/sing-box\/protocol\/ssh"/a\
+\t"github.com/sagernet/sing-box/protocol/payloadinject"\n\t"github.com/sagernet/sing-box/protocol/badvpn"' $REGISTRY
+
+  # Add registration calls in OutboundRegistry()
+  sed -i '/ssh.RegisterOutbound(registry)/a\
+\tpayloadinject.RegisterOutbound(registry)\n\tbadvpn.RegisterOutbound(registry)' $REGISTRY
+
+  echo "[+] Registered custom protocols in include/registry.go"
 fi
 
 # ===== 5. Make sure option package allows custom dir =====
