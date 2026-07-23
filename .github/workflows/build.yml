@@ -11,19 +11,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { path: ghostvpn }
-
       - uses: actions/setup-go@v5
         with: { go-version: '1.25' }
-
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: '17' }
-
       - uses: android-actions/setup-android@v3
 
       - name: Install SDK
         run: yes | sdkmanager "platforms;android-34" "build-tools;34.0.0"
 
-      - name: Clone sing-box
+      - name: Clone sing-box + patch
         run: |
           git clone --depth 1 https://github.com/SagerNet/sing-box.git /tmp/sing-box
           cp -r ${{ github.workspace }}/ghostvpn/protocol/* /tmp/sing-box/protocol/
@@ -41,247 +38,620 @@ jobs:
             -o /tmp/libbox.aar \
             github.com/sagernet/sing-box/experimental/libbox
 
-      - name: Create GhostVpn project
+      - name: Create GhostVpn project structure
         run: |
-          mkdir -p /tmp/ghostvpn/app/libs /tmp/ghostvpn/app/src/main/java/com/ghostvpn
-          mkdir -p /tmp/ghostvpn/app/src/main/res/layout /tmp/ghostvpn/app/src/main/res/values
-          mkdir -p /tmp/ghostvpn/app/src/main/res/drawable /tmp/ghostvpn/app/src/main/res/xml
+          mkdir -p /tmp/ghostvpn/app/libs
+          mkdir -p /tmp/ghostvpn/app/src/main/java/com/ghostvpn
+          mkdir -p /tmp/ghostvpn/app/src/main/res/drawable
+          mkdir -p /tmp/ghostvpn/app/src/main/res/values
           mkdir -p /tmp/ghostvpn/gradle/wrapper
           cp /tmp/libbox.aar /tmp/ghostvpn/app/libs/
           cp ${{ github.workspace }}/ghostvpn/android/app/src/main/res/drawable/ghostvpn_icon.png \
              /tmp/ghostvpn/app/src/main/res/drawable/ 2>/dev/null || true
 
-      - name: Write project files
+      - name: Write build files
         run: |
-          # settings.gradle
-          cat > /tmp/ghostvpn/settings.gradle.kts << 'SETTINGS'
-          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
-          dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
-          rootProject.name = "GhostVpn"; include(":app")
-          SETTINGS
-
-          # Root build.gradle
-          cat > /tmp/ghostvpn/build.gradle.kts << 'BUILD'
-          plugins { id("com.android.application") version "8.2.0" apply false; id("org.jetbrains.kotlin.android") version "1.9.20" apply false }
-          BUILD
-
-          # App build.gradle
-          cat > /tmp/ghostvpn/app/build.gradle.kts << 'APPBUILD'
-          plugins { id("com.android.application"); id("org.jetbrains.kotlin.android") }
+          # settings.gradle.kts
+          tee /tmp/ghostvpn/settings.gradle.kts > /dev/null << 'GRADLE'
+          pluginManagement {
+              repositories { google(); mavenCentral(); gradlePluginPortal() }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories { google(); mavenCentral() }
+          }
+          rootProject.name = "GhostVpn"
+          include(":app")
+          GRADLE
+          # root build.gradle.kts
+          tee /tmp/ghostvpn/build.gradle.kts > /dev/null << 'GRADLE'
+          plugins {
+              id("com.android.application") version "8.2.0" apply false
+              id("org.jetbrains.kotlin.android") version "1.9.20" apply false
+          }
+          GRADLE
+          # app build.gradle.kts
+          tee /tmp/ghostvpn/app/build.gradle.kts > /dev/null << 'GRADLE'
+          plugins {
+              id("com.android.application")
+              id("org.jetbrains.kotlin.android")
+          }
           android {
-              namespace = "com.ghostvpn"; compileSdk = 34
-              defaultConfig { applicationId = "com.ghostvpn"; minSdk = 21; targetSdk = 34; versionCode = 1; versionName = "1.0" }
-              compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
+              namespace = "com.ghostvpn"
+              compileSdk = 34
+              defaultConfig {
+                  applicationId = "com.ghostvpn"
+                  minSdk = 21
+                  targetSdk = 34
+                  versionCode = 1
+                  versionName = "1.0"
+              }
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
               kotlinOptions { jvmTarget = "17" }
           }
           dependencies {
               implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar"))))
-              implementation("androidx.appcompat:appcompat:1.6.1"); implementation("androidx.core:core-ktx:1.12.0")
+              implementation("androidx.appcompat:appcompat:1.6.1")
+              implementation("androidx.core:core-ktx:1.12.0")
               implementation("com.google.android.material:material:1.11.0")
-              implementation("androidx.preference:preference-ktx:1.2.1"); implementation("com.google.code.gson:gson:2.10.1")
+              implementation("com.google.code.gson:gson:2.10.1")
           }
-          APPBUILD
+          GRADLE
+          # gradle.properties
+          tee /tmp/ghostvpn/gradle.properties > /dev/null << 'GRADLE'
+          org.gradle.jvmargs=-Xmx2048m
+          android.useAndroidX=true
+          GRADLE
+          # gradle-wrapper.properties
+          tee /tmp/ghostvpn/gradle/wrapper/gradle-wrapper.properties > /dev/null << 'GRADLE'
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.5-bin.zip
+          networkTimeout=10000
+          validateDistributionUrl=true
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          GRADLE
 
-          # AndroidManifest
-          cat > /tmp/ghostvpn/app/src/main/AndroidManifest.xml << 'MANIFEST'
+      - name: Write AndroidManifest
+        run: |
+          tee /tmp/ghostvpn/app/src/main/AndroidManifest.xml > /dev/null << 'XML'
           <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.ghostvpn">
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="com.ghostvpn">
               <uses-permission android:name="android.permission.INTERNET" />
               <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-              <application android:allowBackup="true" android:label="GhostVpn"
-                  android:icon="@drawable/ghostvpn_icon" android:supportsRtl="true"
-                  android:theme="@style/Theme.GhostVpn" android:usesCleartextTraffic="true">
+              <application
+                  android:allowBackup="true"
+                  android:label="GhostVpn"
+                  android:icon="@drawable/ghostvpn_icon"
+                  android:supportsRtl="true"
+                  android:theme="@style/Theme.GhostVpn"
+                  android:usesCleartextTraffic="true">
                   <activity android:name=".MainActivity" android:exported="true"
                       android:configChanges="orientation|screenSize">
-                      <intent-filter><action android:name="android.intent.action.MAIN"/>
-                          <category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
                   </activity>
-                  <service android:name=".TunnelService" android:exported="false"
-                      android:foregroundServiceType="dataSync"/>
+                  <service android:name=".TunnelService"
+                      android:exported="false"
+                      android:foregroundServiceType="dataSync" />
               </application>
           </manifest>
-          MANIFEST
+          XML
 
-          # themes
-          cat > /tmp/ghostvpn/app/src/main/res/values/themes.xml << 'THEMES'
+      - name: Write themes.xml
+        run: |
+          tee /tmp/ghostvpn/app/src/main/res/values/themes.xml > /dev/null << 'XML'
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <style name="Theme.GhostVpn" parent="Theme.MaterialComponents.DayNight.NoActionBar">
                   <item name="colorPrimary">#FF6A00</item>
+                  <item name="colorPrimaryVariant">#CC5500</item>
+                  <item name="colorOnPrimary">#FFFFFF</item>
+                  <item name="colorSecondary">#FF8C00</item>
+                  <item name="colorOnSecondary">#FFFFFF</item>
                   <item name="colorSurface">#1A1A2E</item>
                   <item name="colorOnSurface">#E0E0E0</item>
                   <item name="android:colorBackground">#0F0F23</item>
+                  <item name="colorOnBackground">#E0E0E0</item>
               </style>
           </resources>
-          THEMES
+          XML
 
-          # strings
-          cat > /tmp/ghostvpn/app/src/main/res/values/strings.xml << 'STRINGS'
-          <?xml version="1.0" encoding="utf-8"?>
-          <resources><string name="app_name">GhostVpn</string></resources>
-          STRINGS
-
-          # gradle.properties
-          cat > /tmp/ghostvpn/gradle.properties << 'PROPS'
-          org.gradle.jvmargs=-Xmx2048m; android.useAndroidX=true
-          PROPS
-
-          # wrapper
-          cat > /tmp/ghostvpn/gradle/wrapper/gradle-wrapper.properties << 'WRAPPER'
-          distributionBase=GRADLE_USER_HOME; distributionPath=wrapper/dists
-          distributionUrl=https\://services.gradle.org/distributions/gradle-8.5-bin.zip
-          networkTimeout=10000; validateDistributionUrl=true; zipStoreBase=GRADLE_USER_HOME; zipStorePath=wrapper/dists
-          WRAPPER
-
-      - name: Write MainActivity.kt
+      - name: Write strings.xml
         run: |
-          cat > /tmp/ghostvpn/app/src/main/java/com/ghostvpn/MainActivity.kt << 'KOTLIN'
-          package com.ghostvpn
-          import android.content.*; import android.net.Uri; import android.os.*
-          import android.widget.*; import androidx.appcompat.app.AppCompatActivity
-          import androidx.appcompat.app.AppCompatDelegate
-          import com.google.gson.Gson; import io.nekohasekai.libbox.Libbox
-          data class Profile(val name: String="Default", val server: String="", val port: Int=80,
-              val user: String="", val password: String="", val payload: String="", val sni: String="",
-              val socksPort: Int=1080, val badvpnEnabled: Boolean=false, val badvpnPort: Int=7300,
-              val dns: String="8.8.8.8", val autoReconnect: Boolean=false)
-          class MainActivity : AppCompatActivity() {
-              companion object { const val PREFS = "ghostvpn"; const val EXPORT=1001; const val IMPORT=1002 }
-              private lateinit var etServer: EditText; private lateinit var etPort: EditText
-              private lateinit var etUser: EditText; private lateinit var etPass: EditText
-              private lateinit var etPayload: EditText; private lateinit var etSNI: EditText
-              private lateinit var statusText: TextView; private lateinit var logText: TextView
-              private lateinit var btnConnect: Button; private lateinit var etDNS: EditText
-              private lateinit var swBadVPN: Switch; private lateinit var swReconnect: Switch
-              private var isRunning = false
-              override fun onCreate(savedInstanceState: Bundle?) {
-                  super.onCreate(savedInstanceState)
-                  val prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
-                  if (prefs.getBoolean("dark", true)) AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
-                  val scroll = ScrollView(this); val l = LinearLayout(this).apply { orientation=1; setPadding(16,16,16,16) }
-                  // Header con botones export/import
-                  val h = LinearLayout(this).apply { orientation=0 }
-                  h.addView(TextView(this).apply { text="GhostVpn"; textSize=22f })
-                  h.addView(Button(this).apply { text="Exportar"; setOnClickListener{exportProfile()} })
-                  h.addView(Button(this).apply { text="Importar"; setOnClickListener{importProfile()} })
-                  l.addView(h)
-                  fun fld(label:String, hint:String, def:String="", multi:Boolean=false):EditText {
-                      l.addView(TextView(this).apply{text=label;textSize=13f})
-                      val e=EditText(this).apply{setHint(hint);setText(def);if(multi){minLines=3;maxLines=6}}
-                      l.addView(e); return e
-                  }
-                  etServer=fld("Servidor","IP","149.33.19.164"); etPort=fld("Puerto","80","80")
-                  val cr=LinearLayout(this).apply{orientation=0}
-                  etUser=EditText(this).apply{hint="Usuario";setText("Charly100");layoutParams=LinearLayout.LayoutParams(0,-2,1f)}
-                  etPass=EditText(this).apply{hint="Contraseña";inputType=android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD;layoutParams=LinearLayout.LayoutParams(0,-2,1f)}
-                  cr.addView(etUser); cr.addView(etPass)
-                  l.addView(TextView(this).apply{text="Credenciales SSH";textSize=13f})
-                  l.addView(cr)
-                  etPayload=fld("Payload","CONNECT /...","",true)
-                  etSNI=fld("SNI / Host","SNI opcional")
-                  // BadVPN
-                  val bv=LinearLayout(this).apply{orientation=0}
-                  swBadVPN=Switch(this).apply{text="BadVPN"}
-                  val etBVP=EditText(this).apply{hint="7300";setText("7300");inputType=android.text.InputType.TYPE_CLASS_NUMBER;layoutParams=LinearLayout.LayoutParams(0,-2,1f)}
-                  bv.addView(swBadVPN); bv.addView(etBVP)
-                  l.addView(TextView(this).apply{text="BadVPN UDPGW";textSize=13f}); l.addView(bv)
-                  // DNS
-                  val dnsVals=arrayOf("Google 8.8.8.8","Cloudflare 1.1.1.1","OpenDNS 208.67.222.222","Quad9 9.9.9.9","Personalizado")
-                  val spDNS=Spinner(this).apply{adapter=ArrayAdapter(this,android.R.layout.simple_spinner_dropdown_item,dnsVals)}
-                  etDNS=EditText(this).apply{hint="DNS";setText("8.8.8.8")}
-                  l.addView(TextView(this).apply{text="DNS";textSize=13f}); l.addView(spDNS); l.addView(etDNS)
-                  spDNS.setOnItemSelectedListener(object:AdapterView.OnItemSelectedListener{
-                      override fun onItemSelected(p:AdapterView<*>?,v:android.view.View?,pos:Int,id:Long){
-                          etDNS.setText(arrayOf("8.8.8.8","1.1.1.1","208.67.222.222","9.9.9.9","8.8.8.8")[pos])}
-                      override fun onNothingSelected(p:AdapterView<*>?){}
-                  })
-                  // Auto-reconnect
-                  swReconnect=Switch(this).apply{text="Auto-reconexión"}
-                  l.addView(swReconnect)
-                  // Status + button
-                  statusText=TextView(this).apply{text="⏸ Desconectado";textSize=16f;textAlignment=TextView.TEXT_ALIGNMENT_CENTER;setPadding(0,16,0,16)}
-                  l.addView(statusText)
-                  btnConnect=Button(this).apply{text="CONECTAR"}
-                  btnConnect.setOnClickListener{
-                      if(!isRunning){conectar()}else{desconectar()}
-                  }
-                  l.addView(btnConnect)
-                  // Log
-                  l.addView(TextView(this).apply{text="Log:";textSize=12f})
-                  val ls=ScrollView(this).apply{layoutParams=LinearLayout.LayoutParams(-1,400)}
-                  logText=TextView(this).apply{textSize=10f}; ls.addView(logText); l.addView(ls)
-                  l.addView(Button(this).apply{text="Limpiar";setOnClickListener{logText.text=""}})
-                  scroll.addView(l); setContentView(scroll)
-              }
-              private fun conectar(){
-                  val s=etServer.text.toString(); val p=etPort.text.toString().toIntOrNull()?:80
-                  val u=etUser.text.toString(); val pw=etPass.text.toString(); val pl=etPayload.text.toString()
-                  val sp=1080
-                  if(s.isEmpty()||u.isEmpty()||pw.isEmpty()){Toast.makeText(this,"Completá los campos",0).show();return}
-                  isRunning=true; btnConnect.text="DESCONECTAR"; statusText.text="🔌 Conectando..."
-                  logText.append("\n🔄 Conectando a $s:$p...\n")
-                  Thread{
-                      try{
-                          val err=Libbox.startHTTPCustomTunnel(s,p,u,pw,pl,sp)
-                          runOnUiThread{
-                              if(err!=null){logText.append("❌ $err\n");reset()}
-                              else{logText.append("✅ Conectado SOCKS5 127.0.0.1:$sp\n");statusText.text="✅ Conectado"}
-                          }
-                      }catch(e:Exception){runOnUiThread{logText.append("❌ ${e.message}\n");reset()}}
-                  }.start()
-              }
-              private fun desconectar(){logText.append("⏹ Deteniendo...\n");Thread{Libbox.stopHTTPCustomTunnel();runOnUiThread{reset()}}.start()}
-              private fun reset(){isRunning=false;btnConnect.text="CONECTAR";statusText.text="⏸ Desconectado"}
-              private fun exportProfile(){
-                  val p=Profile(server=etServer.text.toString(),port=etPort.text.toString().toIntOrNull()?:80,user=etUser.text.toString(),password=etPass.text.toString(),
-                      payload=etPayload.text.toString(),sni=etSNI.text.toString(),badvpnEnabled=swBadVPN.isChecked,dns=etDNS.text.toString(),autoReconnect=swReconnect.isChecked)
-                  val j=Gson().toJson(p)
-                  startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply{addCategory(Intent.CATEGORY_OPENABLE);type="application/json";putExtra(Intent.EXTRA_TITLE,"ghostvpn.json")},EXPORT)
-                  getSharedPreferences(PREFS,MODE_PRIVATE).edit().putString("export",j).apply()
-              }
-              private fun importProfile(){startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply{addCategory(Intent.CATEGORY_OPENABLE);type="application/json"},IMPORT)}
-              override fun onActivityResult(r:Int,rc:Int,d:Intent?){
-                  super.onActivityResult(r,rc,d)
-                  if(rc!=RESULT_OK||d==null)return
-                  if(r==EXPORT){val j=getSharedPreferences(PREFS,MODE_PRIVATE).getString("export","")
-                      try{contentResolver.openOutputStream(d.data!!)!!.write(j?.toByteArray())}catch(e:Exception){}}
-                  if(r==IMPORT){try{
-                      val p=Gson().fromJson(contentResolver.openInputStream(d.data!!)!!.bufferedReader().readText(),Profile::class.java)
-                      etServer.setText(p.server);etPort.setText(p.port.toString());etUser.setText(p.user);etPass.setText(p.password)
-                      etPayload.setText(p.payload);etSNI.setText(p.sni);etDNS.setText(p.dns);swBadVPN.isChecked=p.badvpnEnabled;swReconnect.isChecked=p.autoReconnect
-                  }catch(e:Exception){}}
-              }
-          }
-          KOTLIN
+          tee /tmp/ghostvpn/app/src/main/res/values/strings.xml > /dev/null << 'XML'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <string name="app_name">GhostVpn</string>
+              <string name="connect">Conectar</string>
+              <string name="disconnect">Desconectar</string>
+              <string name="server">Servidor</string>
+              <string name="port">Puerto</string>
+              <string name="ssh_user">Usuario SSH</string>
+              <string name="ssh_pass">Contrase\u00f1a</string>
+              <string name="payload">Payload</string>
+              <string name="sni">SNI / Host</string>
+              <string name="export">Exportar</string>
+              <string name="import">Importar</string>
+              <string name="dns">DNS</string>
+              <string name="badvpn">BadVPN UDPGW</string>
+              <string name="autoreconnect">Auto-reconexi\u00f3n</string>
+              <string name="log">Log</string>
+              <string name="clear_log">Limpiar</string>
+              <string name="connected">Conectado</string>
+              <string name="disconnected">Desconectado</string>
+              <string name="connecting">Conectando...</string>
+          </resources>
+          XML
 
       - name: Write TunnelService.kt
         run: |
-          cat > /tmp/ghostvpn/app/src/main/java/com/ghostvpn/TunnelService.kt << 'KOTLIN'
+          tee /tmp/ghostvpn/app/src/main/java/com/ghostvpn/TunnelService.kt > /dev/null << 'KOTLIN'
           package com.ghostvpn
-          import android.app.*; import android.content.Intent; import android.os.IBinder
+
+          import android.app.*
+          import android.content.Intent
+          import android.os.IBinder
           import androidx.core.app.NotificationCompat
+
           class TunnelService : Service() {
-              companion object { const val CHAN="ghostvpn"; const val NID=1 }
-              override fun onCreate(){super.onCreate();createChan();startForeground(NID,note("GhostVpn activo"))}
-              override fun onStartCommand(i:Intent?,f:Int,s:Int)=START_STICKY
-              override fun onDestroy(){super.onDestroy()}
-              override fun onBind(i:Intent?):IBinder?=null
-              private fun createChan(){(getSystemService(NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(
-                  NotificationChannel(CHAN,"GhostVpn",NotificationManager.IMPORTANCE_LOW))}
-              private fun note(t:String)=NotificationCompat.Builder(this,CHAN).setContentTitle("GhostVpn").setContentText(t)
-                  .setSmallIcon(android.R.drawable.ic_menu_share).setOngoing(true).build()
+              companion object {
+                  const val CHANNEL_ID = "ghostvpn_tunnel"
+                  const val NOTIFY_ID = 1
+              }
+
+              override fun onCreate() {
+                  super.onCreate()
+                  createNotificationChannel()
+                  startForeground(NOTIFY_ID, buildNotification("GhostVpn activo"))
+              }
+
+              override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+                  return START_STICKY
+              }
+
+              override fun onDestroy() {
+                  super.onDestroy()
+              }
+
+              override fun onBind(intent: Intent?): IBinder? = null
+
+              private fun createNotificationChannel() {
+                  val channel = NotificationChannel(
+                      CHANNEL_ID, "GhostVpn", NotificationManager.IMPORTANCE_LOW
+                  ).apply { description = "Túnel GhostVpn" }
+                  val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+                  manager.createNotificationChannel(channel)
+              }
+
+              private fun buildNotification(text: String): Notification {
+                  return NotificationCompat.Builder(this, CHANNEL_ID)
+                      .setContentTitle("GhostVpn")
+                      .setContentText(text)
+                      .setSmallIcon(android.R.drawable.ic_menu_share)
+                      .setOngoing(true)
+                      .build()
+              }
           }
           KOTLIN
 
-      - name: Setup Gradle
+      - name: Write MainActivity.kt
         run: |
-          cd /tmp/ghostvpn
-          curl -sL https://services.gradle.org/distributions/gradle-8.5-bin.zip -o /tmp/g.zip
-          unzip -q /tmp/g.zip -d /tmp/g; /tmp/g/gradle-8.5/bin/gradle wrapper --gradle-version 8.5
+          tee /tmp/ghostvpn/app/src/main/java/com/ghostvpn/MainActivity.kt > /dev/null << 'KOTLIN'
+          package com.ghostvpn
+
+          import android.content.Intent
+          import android.os.Bundle
+          import android.os.Handler
+          import android.os.Looper
+          import android.view.View
+          import android.widget.*
+          import androidx.appcompat.app.AppCompatActivity
+          import androidx.appcompat.app.AppCompatDelegate
+          import com.google.gson.Gson
+          import io.nekohasekai.libbox.Libbox
+
+          data class Profile(
+              val server: String = "",
+              val port: Int = 80,
+              val user: String = "",
+              val password: String = "",
+              val payload: String = "",
+              val sni: String = "",
+              val badvpnEnabled: Boolean = false,
+              val badvpnPort: Int = 7300,
+              val dns: String = "8.8.8.8",
+              val autoReconnect: Boolean = false
+          )
+
+          class MainActivity : AppCompatActivity() {
+              companion object {
+                  const val PREFS_NAME = "ghostvpn_prefs"
+                  const val EXPORT_REQ = 1001
+                  const val IMPORT_REQ = 1002
+              }
+
+              // Campos
+              private lateinit var etServer: EditText
+              private lateinit var etPort: EditText
+              private lateinit var etUser: EditText
+              private lateinit var etPass: EditText
+              private lateinit var etPayload: EditText
+              private lateinit var etSNI: EditText
+              private lateinit var etBadvpnPort: EditText
+              private lateinit var etDNS: EditText
+              private lateinit var statusText: TextView
+              private lateinit var logText: TextView
+              private lateinit var btnConnect: Button
+              private lateinit var swBadvpn: Switch
+              private lateinit var swReconnect: Switch
+              private lateinit var spDNS: Spinner
+
+              private var isRunning = false
+              private val mainHandler = Handler(Looper.getMainLooper())
+
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+
+                  // Cargar preferencia de tema
+                  val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                  if (prefs.getBoolean("dark_theme", true)) {
+                      AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+                  }
+
+                  // Layout principal
+                  val scroll = ScrollView(this)
+                  val layout = LinearLayout(this).apply {
+                      orientation = LinearLayout.VERTICAL
+                      setPadding(20, 20, 20, 20)
+                  }
+
+                  // === TITULO + BOTONES EXPORT/IMPORT ===
+                  val toolbar = LinearLayout(this).apply {
+                      orientation = LinearLayout.HORIZONTAL
+                  }
+                  toolbar.addView(TextView(this).apply {
+                      text = "GhostVpn"
+                      textSize = 24f
+                  })
+                  toolbar.addView(Button(this).apply {
+                      text = "Exportar"
+                      setOnClickListener { exportProfile() }
+                  })
+                  toolbar.addView(Button(this).apply {
+                      text = "Importar"
+                      setOnClickListener { importProfile() }
+                  })
+                  layout.addView(toolbar)
+
+                  // === FUNCIÓN PARA CREAR CAMPOS ===
+                  fun crearCampo(label: String, hint: String, valor: String = "", multiline: Boolean = false): EditText {
+                      layout.addView(TextView(this).apply {
+                          text = label
+                          textSize = 14f
+                          setPadding(0, 12, 0, 2)
+                      })
+                      return EditText(this).apply {
+                          setHint(hint)
+                          setText(valor)
+                          if (multiline) {
+                              minLines = 4
+                              maxLines = 8
+                          }
+                          layout.addView(this)
+                      }
+                  }
+
+                  // === CAMPOS PRINCIPALES ===
+                  etServer = crearCampo("Servidor", "IP del proxy", "149.33.19.164")
+                  etPort = crearCampo("Puerto", "80", "80")
+
+                  val credLayout = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+                  etUser = EditText(this).apply {
+                      hint = "Usuario"
+                      setText("Charly100")
+                      layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+                  }
+                  etPass = EditText(this).apply {
+                      hint = "Contrase\u00f1a"
+                      inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                              android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+                      layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+                  }
+                  credLayout.addView(etUser)
+                  credLayout.addView(etPass)
+                  layout.addView(TextView(this).apply {
+                      text = "Credenciales SSH"
+                      textSize = 14f
+                      setPadding(0, 12, 0, 2)
+                  })
+                  layout.addView(credLayout)
+
+                  // === EDITOR DE PAYLOAD ===
+                  etPayload = crearCampo("Payload", "CONNECT / HTTP/1.1...", "", true)
+                  etPayload.setText("CONNECT / HTTP/1.1[crlf]Host: recargas.personal.com.ar[crlf][crlf]" +
+                          "[split][crlf][crlf]GET / HTTP/1.1[crlf]Host: recargas.personal.com.ar[lf][lf]" +
+                          "GET /vpsx HTTP/1.1[crlf]Host:[rotate=cdn1.panda2.fun]" +
+                          "[lf]Backend: vps146[lf]Connection: Upgrade[lf]Upgrade: websocket[lf]" +
+                          "User-Agent: Googlebot/2.1[lf][lf]")
+
+                  // === SNI / HOST SEPARADO ===
+                  etSNI = crearCampo("SNI / Host", "Bughost (opcional)")
+
+                  // === BADVPN TOGGLE ===
+                  layout.addView(TextView(this).apply {
+                      text = "BadVPN UDPGW"
+                      textSize = 14f
+                      setPadding(0, 12, 0, 2)
+                  })
+                  val badvpnLayout = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+                  swBadvpn = Switch(this).apply { text = "Activar" }
+                  etBadvpnPort = EditText(this).apply {
+                      hint = "7300"
+                      setText("7300")
+                      inputType = android.text.InputType.TYPE_CLASS_NUMBER
+                      layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+                  }
+                  badvpnLayout.addView(swBadvpn)
+                  badvpnLayout.addView(etBadvpnPort)
+                  layout.addView(badvpnLayout)
+
+                  // === DNS SELECTOR ===
+                  layout.addView(TextView(this).apply {
+                      text = "DNS"
+                      textSize = 14f
+                      setPadding(0, 12, 0, 2)
+                  })
+                  val dnsOptions = arrayOf(
+                      "Google (8.8.8.8)",
+                      "Cloudflare (1.1.1.1)",
+                      "OpenDNS (208.67.222.222)",
+                      "Quad9 (9.9.9.9)",
+                      "Personalizado"
+                  )
+                  spDNS = Spinner(this).apply {
+                      adapter = ArrayAdapter(this@MainActivity,
+                          android.R.layout.simple_spinner_dropdown_item, dnsOptions)
+                  }
+                  layout.addView(spDNS)
+                  etDNS = EditText(this).apply {
+                      hint = "DNS personalizado"
+                      setText("8.8.8.8")
+                  }
+                  layout.addView(etDNS)
+
+                  spDNS.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                      override fun onItemSelected(parent: AdapterView<*>?, view: View?,
+                                                   position: Int, id: Long) {
+                          val dnsValues = arrayOf(
+                              "8.8.8.8", "1.1.1.1",
+                              "208.67.222.222", "9.9.9.9", "8.8.8.8"
+                          )
+                          etDNS.setText(dnsValues[position])
+                      }
+                      override fun onNothingSelected(parent: AdapterView<*>?) {}
+                  }
+
+                  // === AUTO-RECONNECT ===
+                  swReconnect = Switch(this).apply { text = "Auto-reconexi\u00f3n" }
+                  layout.addView(swReconnect)
+
+                  // === STATUS ===
+                  statusText = TextView(this).apply {
+                      text = "\u23F8 Desconectado"
+                      textSize = 18f
+                      textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+                      setPadding(0, 20, 0, 10)
+                  }
+                  layout.addView(statusText)
+
+                  // === BOTON CONECTAR ===
+                  btnConnect = Button(this).apply { text = "CONECTAR" }
+                  btnConnect.setOnClickListener {
+                      if (!isRunning) conectar() else desconectar()
+                  }
+                  layout.addView(btnConnect)
+
+                  // === LOG ===
+                  layout.addView(TextView(this).apply {
+                      text = "Log:"
+                      textSize = 12f
+                      setPadding(0, 10, 0, 2)
+                  })
+                  val logScroll = ScrollView(this).apply {
+                      layoutParams = LinearLayout.LayoutParams(
+                          LinearLayout.LayoutParams.MATCH_PARENT, 350)
+                  }
+                  logText = TextView(this).apply { textSize = 10f }
+                  logScroll.addView(logText)
+                  layout.addView(logScroll)
+                  layout.addView(Button(this).apply {
+                      text = "Limpiar log"
+                      setOnClickListener { logText.text = "" }
+                  })
+
+                  scroll.addView(layout)
+                  setContentView(scroll)
+
+                  // Cargar valores guardados
+                  cargarPreferencias()
+              }
+
+              private fun conectar() {
+                  val server = etServer.text.toString().trim()
+                  val port = etPort.text.toString().toIntOrNull() ?: 80
+                  val user = etUser.text.toString().trim()
+                  val pass = etPass.text.toString()
+                  val payload = etPayload.text.toString().trim()
+
+                  if (server.isEmpty() || user.isEmpty() || pass.isEmpty()) {
+                      Toast.makeText(this, "Complet\u00e1 servidor, usuario y contrase\u00f1a",
+                          Toast.LENGTH_SHORT).show()
+                      return
+                  }
+
+                  isRunning = true
+                  btnConnect.text = "DESCONECTAR"
+                  statusText.text = "Conectando..."
+                  agregarLog("Conectando a $server:$port...")
+
+                  Thread {
+                      try {
+                          val socksPort = 1080
+                          val err = Libbox.startHTTPCustomTunnel(
+                              server, port, user, pass, payload, socksPort)
+                          mainHandler.post {
+                              if (err != null) {
+                                  agregarLog("Error: $err")
+                                  resetUI()
+                              } else {
+                                  agregarLog("Conectado! SOCKS5 en 127.0.0.1:$socksPort")
+                                  statusText.text = "Conectado"
+                              }
+                          }
+                      } catch (e: Exception) {
+                          mainHandler.post {
+                              agregarLog("Excepci\u00f3n: ${e.message}")
+                              resetUI()
+                          }
+                      }
+                  }.start()
+              }
+
+              private fun desconectar() {
+                  agregarLog("Deteniendo...")
+                  Thread {
+                      Libbox.stopHTTPCustomTunnel()
+                      mainHandler.post { resetUI() }
+                  }.start()
+              }
+
+              private fun resetUI() {
+                  isRunning = false
+                  btnConnect.text = "CONECTAR"
+                  statusText.text = "Desconectado"
+              }
+
+              private fun agregarLog(msg: String) {
+                  logText.append("$msg\n")
+              }
+
+              // === EXPORTAR PERFIL ===
+              private fun exportProfile() {
+                  val profile = Profile(
+                      server = etServer.text.toString(),
+                      port = etPort.text.toString().toIntOrNull() ?: 80,
+                      user = etUser.text.toString(),
+                      password = etPass.text.toString(),
+                      payload = etPayload.text.toString(),
+                      sni = etSNI.text.toString(),
+                      badvpnEnabled = swBadvpn.isChecked,
+                      badvpnPort = etBadvpnPort.text.toString().toIntOrNull() ?: 7300,
+                      dns = etDNS.text.toString(),
+                      autoReconnect = swReconnect.isChecked
+                  )
+                  val json = Gson().toJson(profile)
+                  getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit()
+                      .putString("export_json", json).apply()
+
+                  val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                      addCategory(Intent.CATEGORY_OPENABLE)
+                      type = "application/json"
+                      putExtra(Intent.EXTRA_TITLE, "ghostvpn_profile.json")
+                  }
+                  startActivityForResult(intent, EXPORT_REQ)
+              }
+
+              // === IMPORTAR PERFIL ===
+              private fun importProfile() {
+                  val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                      addCategory(Intent.CATEGORY_OPENABLE)
+                      type = "application/json"
+                  }
+                  startActivityForResult(intent, IMPORT_REQ)
+              }
+
+              override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+                  super.onActivityResult(requestCode, resultCode, data)
+                  if (resultCode != RESULT_OK || data?.data == null) return
+                  when (requestCode) {
+                      EXPORT_REQ -> {
+                          val json = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                              .getString("export_json", "")
+                          try {
+                              contentResolver.openOutputStream(data.data!!)?.use {
+                                  it.write(json?.toByteArray() ?: ByteArray(0))
+                              }
+                              Toast.makeText(this, "Perfil exportado", Toast.LENGTH_SHORT).show()
+                          } catch (e: Exception) {
+                              Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                          }
+                      }
+                      IMPORT_REQ -> {
+                          try {
+                              val json = contentResolver.openInputStream(data.data!!)
+                                  ?.bufferedReader()?.readText() ?: ""
+                              val profile = Gson().fromJson(json, Profile::class.java)
+                              etServer.setText(profile.server)
+                              etPort.setText(profile.port.toString())
+                              etUser.setText(profile.user)
+                              etPass.setText(profile.password)
+                              etPayload.setText(profile.payload)
+                              etSNI.setText(profile.sni)
+                              swBadvpn.isChecked = profile.badvpnEnabled
+                              etBadvpnPort.setText(profile.badvpnPort.toString())
+                              etDNS.setText(profile.dns)
+                              swReconnect.isChecked = profile.autoReconnect
+                              Toast.makeText(this, "Perfil importado", Toast.LENGTH_SHORT).show()
+                          } catch (e: Exception) {
+                              Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                          }
+                      }
+                  }
+              }
+
+              // === GUARDAR/CARGAR PREFERENCIAS ===
+              private fun cargarPreferencias() {
+                  val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                  etServer.setText(prefs.getString("server", "149.33.19.164"))
+                  etPort.setText(prefs.getInt("port", 80).toString())
+                  etUser.setText(prefs.getString("user", "Charly100"))
+                  etDNS.setText(prefs.getString("dns", "8.8.8.8"))
+                  swBadvpn.isChecked = prefs.getBoolean("badvpn", false)
+                  swReconnect.isChecked = prefs.getBoolean("reconnect", false)
+              }
+
+              override fun onPause() {
+                  super.onPause()
+                  getSharedPreferences(PREFS_NAME, MODE_PRIVATE).edit().apply {
+                      putString("server", etServer.text.toString())
+                      putInt("port", etPort.text.toString().toIntOrNull() ?: 80)
+                      putString("user", etUser.text.toString())
+                      putString("dns", etDNS.text.toString())
+                      putBoolean("badvpn", swBadvpn.isChecked)
+                      putBoolean("reconnect", swReconnect.isChecked)
+                      apply()
+                  }
+              }
+          }
+          KOTLIN
 
       - name: Build APK
-        run: cd /tmp/ghostvpn && chmod +x gradlew && ./gradlew assembleDebug
+        run: |
+          cd /tmp/ghostvpn
+          curl -sL https://services.gradle.org/distributions/gradle-8.5-bin.zip -o /tmp/gradle8.zip
+          unzip -q /tmp/gradle8.zip -d /tmp/gradle8
+          /tmp/gradle8/gradle-8.5/bin/gradle wrapper --gradle-version 8.5
+          chmod +x gradlew
+          ./gradlew assembleDebug
 
       - uses: actions/upload-artifact@v4
         with:
