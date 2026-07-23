@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 	"github.com/sagernet/sing-box/adapter"
@@ -69,7 +70,7 @@ func (o *Outbound) DialContext(ctx context.Context, network string, destination 
 	host := o.serverAddr.AddrString()
 	port := "80"
 	if o.serverAddr.Port > 0 {
-		port = M.PortToString(o.serverAddr)
+		port = strconv.Itoa(o.serverAddr.Port)
 	}
 
 	pic := NewPayloadInjectConn(conn, o.customPayload, o.skipBytes, host, port)
