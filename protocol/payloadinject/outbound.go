@@ -173,13 +173,16 @@ func (c *PayloadInjectConn) Handshake() error {
 			return fmt.Errorf("send part1: %w", err)
 		}
 
-		// Leer respuesta del proxy (200 OK / 200 Connection Established)
+		// Leer respuesta del proxy (200 Connection Established)
 		c.readUntil("200", 5*time.Second)
 
 		// Enviar parte 2 (ej: WebSocket upgrade)
 		if err := c.sendRaw(part2); err != nil {
 			return fmt.Errorf("send part2: %w", err)
 		}
+
+		// Leer respuesta del upgrade (101 Switching Protocols)
+		c.readUntil("101", 5*time.Second)
 	} else {
 		// Payload único
 		if err := c.sendRaw(rendered); err != nil {
