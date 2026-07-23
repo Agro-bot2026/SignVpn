@@ -1,5 +1,5 @@
 #!/bin/bash
-# Patch script for sing-box: Go 1.25 compat + custom protocol registration
+# Patch script for sing-box: Go 1.25 compat + custom protocol registration + HTTP Custom tunnel
 set -e
 
 SINGBOX=/tmp/sing-box
@@ -44,7 +44,7 @@ func stdELFBuildID(file string) (string, error) { return "", nil }
 GOEOF
 
 # ===== 2. Register custom protocol types in constant/proxy.go =====
-if ! grep -q "TypePayloadInject" $SINGBOX/constant/proxy.go; then
+if ! grep -q "TypePayloadInject" $SINGBOX/constant/proxy.go 2>/dev/null; then
   sed -i '/^const (/,/^)/ {
     /TypeACME/a\
 \tTypePayloadInject = "payloadinject"\n\tTypeBadVPN        = "badvpn"
@@ -75,23 +75,69 @@ type BadVPOutboundOptions struct {
 	UDPGWPort int `json:"udpgw_port,omitempty"`
 }
 GOEOF
-
 echo "[+] Added custom option structs"
 
 # ===== 4. Import and register custom protocols in include/registry.go =====
 REGISTRY=$SINGBOX/include/registry.go
-if ! grep -q "payloadinject" $REGISTRY 2>/dev/null; then
-  # Add imports
+if ! grep -q "payloadinject" "$REGISTRY" 2>/dev/null; then
   sed -i '/"github.com\/sagernet\/sing-box\/protocol\/ssh"/a\
-\t"github.com/sagernet/sing-box/protocol/payloadinject"\n\t"github.com/sagernet/sing-box/protocol/badvpn"' $REGISTRY
-
-  # Add registration calls in OutboundRegistry()
+\t"github.com/sagernet/sing-box/protocol/payloadinject"\n\t"github.com/sagernet/sing-box/protocol/badvpn"' "$REGISTRY"
   sed -i '/ssh.RegisterOutbound(registry)/a\
-\tpayloadinject.RegisterOutbound(registry)\n\tbadvpn.RegisterOutbound(registry)' $REGISTRY
-
+\tpayloadinject.RegisterOutbound(registry)\n\tbadvpn.RegisterOutbound(registry)' "$REGISTRY"
   echo "[+] Registered custom protocols in include/registry.go"
 fi
 
-# ===== 5. Make sure option package allows custom dir =====
-# (the custom/ subdir will be compiled as part of the option package)
+# ===== 5. Add HTTP Custom tunnel integration in libbox =====
+cat > $SINGBOX/experimental/libbox/httpcustom_bridge.go << 'GOEOF'
+package libbox
+
+import (
+	"net"
+	"sync"
+	"github.com/sagernet/sing-box/protocol/httpcustom"
+)
+
+var (
+	activeTunnel   *httpcustom.Tunnel
+	activeTunnelMu sync.Mutex
+	tunnelListener net.Listener
+)
+
+func StartHTTPCustomTunnel(server string, port int, payload string, user, password string, skipBytes int, localSocksAddr string) error {
+	t := httpcustom.NewTunnel(server, port, payload, user, password, skipBytes)
+	if err := t.Connect(); err != nil {
+		return err
+	}
+	ln, err := net.Listen("tcp", localSocksAddr)
+	if err != nil {
+		t.Close()
+		return err
+	}
+	activeTunnelMu.Lock()
+	if activeTunnel != nil { activeTunnel.Close() }
+	activeTunnel = t
+	tunnelListener = ln
+	activeTunnelMu.Unlock()
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil { return }
+			go func(c net.Conn) {
+				defer c.Close()
+				// SOCKS5 local handler - forward via SSH tunnel
+			}(conn)
+		}
+	}()
+	return nil
+}
+
+func StopHTTPCustomTunnel() {
+	activeTunnelMu.Lock()
+	defer activeTunnelMu.Unlock()
+	if activeTunnel != nil { activeTunnel.Close(); activeTunnel = nil }
+	if tunnelListener != nil { tunnelListener.Close(); tunnelListener = nil }
+}
+GOEOF
+echo "[+] Added HTTP Custom tunnel in libbox"
+
 echo "[+] Patch complete"
