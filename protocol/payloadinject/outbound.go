@@ -97,6 +97,23 @@ func (c *PayloadInjectConn) render(template string) string {
 	p := template
 	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 
+	// Reemplazar [random=val1;val2;...] (igual que rotate)
+	for {
+		start := strings.Index(p, "[random=")
+		if start == -1 {
+			break
+		}
+		end := strings.Index(p[start:], "]")
+		if end == -1 {
+			break
+		}
+		end += start
+		inner := p[start+8 : end]
+		choices := strings.Split(inner, ";")
+		chosen := choices[rng.Intn(len(choices))]
+		p = p[:start] + chosen + p[end+1:]
+	}
+
 	// Reemplazar [rotate=val1;val2;...]
 	for {
 		start := strings.Index(p, "[rotate=")
@@ -117,8 +134,17 @@ func (c *PayloadInjectConn) render(template string) string {
 	// Reemplazar variables simples
 	p = strings.ReplaceAll(p, "[host]", c.host)
 	p = strings.ReplaceAll(p, "[port]", c.port)
+	p = strings.ReplaceAll(p, "[host_port]", fmt.Sprintf("%s:%s", c.host, c.port))
+	p = strings.ReplaceAll(p, "[method]", "CONNECT")
+	p = strings.ReplaceAll(p, "[protocol]", "HTTP/1.0")
+	p = strings.ReplaceAll(p, "[ssh]", "22")
 	p = strings.ReplaceAll(p, "[crlf]", "\r\n")
 	p = strings.ReplaceAll(p, "[lf]", "\n")
+	p = strings.ReplaceAll(p, "[cr]", "\r")
+	p = strings.ReplaceAll(p, "[lfcr]", "\n\r")
+	p = strings.ReplaceAll(p, "[ua]", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.230 Mobile Safari/537.36")
+	p = strings.ReplaceAll(p, "\\n", "\n")
+	p = strings.ReplaceAll(p, "\\r", "\r")
 
 	return p
 }
