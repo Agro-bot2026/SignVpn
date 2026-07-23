@@ -27,6 +27,7 @@ jobs:
           cd /tmp/sing-box
           go install golang.org/x/mobile/cmd/gomobile@latest
           go install golang.org/x/mobile/cmd/gobind@latest
+          go get -tool golang.org/x/mobile/cmd/gobind
           gomobile init
           gomobile bind -v -target=android/arm64 -androidapi 21 \
             -javapkg io.nekohasekai \
