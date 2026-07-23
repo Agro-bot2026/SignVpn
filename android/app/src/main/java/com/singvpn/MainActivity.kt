@@ -3,6 +3,7 @@ package com.singvpn
 import android.os.Bundle
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import io.nekohasekai.libbox.Libbox
 
 class MainActivity : AppCompatActivity() {
     private lateinit var statusText: TextView
@@ -17,13 +18,8 @@ class MainActivity : AppCompatActivity() {
         layout.setPadding(16, 16, 16, 16)
 
         fun addField(label: String, hint: String, def: String = ""): EditText {
-            val tv = TextView(this).apply { text = label; textSize = 14f }
-            val et = EditText(this).apply {
-                setHint(hint)
-                setText(def)
-                setEms(12)
-            }
-            layout.addView(tv)
+            layout.addView(TextView(this).apply { text = label; textSize = 14f })
+            val et = EditText(this).apply { setHint(hint); setText(def); setEms(12) }
             layout.addView(et)
             return et
         }
@@ -41,7 +37,10 @@ class MainActivity : AppCompatActivity() {
             "User-Agent: Googlebot/2.1[lf][lf]"
         )
 
-        statusText = TextView(this).apply { text = "\u23F8 Desconectado"; textSize = 16f; textAlignment = TextView.TEXT_ALIGNMENT_CENTER }
+        statusText = TextView(this).apply {
+            text = "\u23F8 Desconectado"; textSize = 16f
+            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+        }
         logText = TextView(this).apply { text = ""; textSize = 11f }
         val scroll = ScrollView(this).apply { addView(logText) }
 
@@ -52,19 +51,36 @@ class MainActivity : AppCompatActivity() {
                 btn.text = "Desconectar"
                 statusText.text = "Conectando..."
                 logText.text = ""
-                startTunnel(
-                    serverField.text.toString(),
-                    portField.text.toString().toIntOrNull() ?: 80,
-                    userField.text.toString(),
-                    passField.text.toString(),
-                    payloadField.text.toString(),
-                    1080
-                )
+                val s = serverField.text.toString()
+                val p = portField.text.toString().toIntOrNull() ?: 80
+                val u = userField.text.toString()
+                val pw = passField.text.toString()
+                val pl = payloadField.text.toString()
+                Thread {
+                    try {
+                        logText.append("Conectando a $s:$p...\n")
+                        val err = Libbox.startHTTPCustomTunnel(s, p, u, pw, pl, 1080)
+                        if (err != null) {
+                            logText.append("\u274C Error: $err\n")
+                            isRunning = false
+                            btn.text = "Conectar"
+                            statusText.text = "\u23F8 Desconectado"
+                        } else {
+                            logText.append("Conectado! SOCKS5 en 127.0.0.1:1080\n")
+                            statusText.text = "Conectado"
+                        }
+                    } catch (e: Exception) {
+                        logText.append("\u274C ${e.message}\n")
+                        isRunning = false
+                        btn.text = "Conectar"
+                        statusText.text = "\u23F8 Desconectado"
+                    }
+                }.start()
             } else {
                 isRunning = false
                 btn.text = "Conectar"
                 statusText.text = "\u23F8 Desconectado"
-                stopTunnel()
+                Thread { Libbox.stopHTTPCustomTunnel() }.start()
             }
         }
 
@@ -72,32 +88,5 @@ class MainActivity : AppCompatActivity() {
         layout.addView(btn)
         layout.addView(scroll)
         setContentView(layout)
-    }
-
-    private fun startTunnel(server: String, port: Int, user: String, pass: String, payload: String, socksPort: Int) {
-        Thread {
-            val cb = object : tunnel.TunnelCallback {
-                override fun onLog(msg: String?) {
-                    runOnUiThread { logText.append("$msg\n") }
-                }
-                override fun onStatus(status: String?) {
-                    runOnUiThread { statusText.text = status }
-                }
-                override fun onError(err: String?) {
-                    runOnUiThread { logText.append("\u274C $err\n"); statusText.text = "\u274C Error" }
-                }
-                override fun onConnected() {
-                    runOnUiThread { statusText.text = "Conectado - SOCKS5 en 127.0.0.1:1080" }
-                }
-                override fun onDisconnected() {
-                    runOnUiThread { statusText.text = "\u23F8 Desconectado" }
-                }
-            }
-            tunnel.Tunnel.startTunnel(server, port, user, pass, payload, socksPort, cb)
-        }.start()
-    }
-
-    private fun stopTunnel() {
-        Thread { tunnel.Tunnel.stopTunnel() }.start()
     }
 }
