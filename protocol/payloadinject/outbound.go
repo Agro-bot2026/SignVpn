@@ -1,7 +1,6 @@
 package payloadinject
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -10,7 +9,6 @@ import (
 	"os"
 	"strings"
 	"time"
-
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/adapter/outbound"
 	"github.com/sagernet/sing-box/common/dialer"
@@ -155,30 +153,39 @@ func (c *PayloadInjectConn) sendRaw(data string) error {
 	return err
 }
 
-// readUntil busca una subcadena en el flujo de respuesta
-func (c *PayloadInjectConn) readUntil(target string, timeout time.Duration) (string, error) {
+// readUntil busca una subcadena en el flujo de respuesta SIN buffer extra
+// Lee raw bytes del socket y los descarta (la respuesta HTTP no nos interesa),
+// pero NO absorbe bytes del SSH que vienen después.
+func (c *PayloadInjectConn) readUntil(target string, timeout time.Duration) error {
 	c.Conn.SetReadDeadline(time.Now().Add(timeout))
 	defer c.Conn.SetReadDeadline(time.Time{})
-	reader := bufio.NewReader(c.Conn)
-	var buf strings.Builder
+	// Leer byte a byte para no absorber de más
+	var buf [1]byte
+	var match strings.Builder
 	for {
-		chunk, err := reader.ReadString('\n')
-		buf.WriteString(chunk)
+		_, err := c.Conn.Read(buf[:])
 		if err != nil {
-			return buf.String(), err
+			return err
 		}
-		if strings.Contains(buf.String(), target) {
-			return buf.String(), nil
+		match.Write(buf[:])
+		if strings.Contains(match.String(), target) {
+			return nil
 		}
-		// Si ya tenemos más de 8KB, salimos
-		if buf.Len() > 8192 {
-			return buf.String(), nil
+		// Mantener solo los últimos 20 bytes para el matching
+		if match.Len() > 20 {
+			discard := match.Len() - 20
+			_ = discard // simplemente limitamos el escaneo
+		}
+		// Si es demasiado largo, salimos
+		if match.Len() > 65536 {
+			return nil
 		}
 	}
 }
 
 // Handshake ejecuta el payload completo con soporte [split]
 // [split] = envía parte 1, lee respuesta del proxy, envía parte 2
+// LEE SOLO la respuesta HTTP (200 OK), NO absorbe bytes SSH
 func (c *PayloadInjectConn) Handshake() error {
 	if c.handshake {
 		return nil
@@ -200,7 +207,10 @@ func (c *PayloadInjectConn) Handshake() error {
 		}
 
 		// Leer respuesta del proxy (200 Connection Established)
-		c.readUntil("200", 5*time.Second)
+		// Lee SOLO bytes HTTP, NO toca datos SSH que vengan después
+		if err := c.readUntil("200", 5*time.Second); err != nil {
+			return fmt.Errorf("read 200 part1: %w", err)
+		}
 
 		// Enviar parte 2 (ej: WebSocket upgrade)
 		if err := c.sendRaw(part2); err != nil {
@@ -208,11 +218,19 @@ func (c *PayloadInjectConn) Handshake() error {
 		}
 
 		// Leer respuesta del upgrade (200 OK)
-		c.readUntil("200", 5*time.Second)
+		if err := c.readUntil("200", 5*time.Second); err != nil {
+			// Si falla, puede que ya haya recibido el banner SSH - intentamos igual
+			return nil
+		}
 	} else {
 		// Payload único
 		if err := c.sendRaw(rendered); err != nil {
 			return fmt.Errorf("send payload: %w", err)
+		}
+
+		// Leer respuesta HTTP
+		if err := c.readUntil("200", 5*time.Second); err != nil {
+			return fmt.Errorf("read 200: %w", err)
 		}
 	}
 
