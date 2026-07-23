@@ -3,7 +3,8 @@
     package="com.singvpn">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <application android:allowBackup="true" android:label="SingVPN"
+    <application android:allowBackup="true" android:label="@string/app_name"
+        android:icon="@drawable/ghostvpn_icon"
         android:supportsRtl="true" android:theme="@style/Theme.AppCompat.Light">
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
