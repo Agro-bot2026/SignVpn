@@ -49,7 +49,7 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 		cp = "GET http://[host]/ HTTP/1.1[crlf]Host: [host][crlf]Connection: Upgrade[crlf]Upgrade: websocket[crlf][crlf]HTTP/1.1 200 Connection Established[crlf][crlf]"
 	}
 	return &Outbound{
-		Adapter:       outbound.NewAdapter(C.TypePayloadInject, tag, []string{N.NetworkTCP}, options.DialerOptions),
+		Adapter:       outbound.NewAdapterWithDialerOptions(C.TypePayloadInject, tag, []string{N.NetworkTCP}, options.DialerOptions),
 		ctx:           ctx,
 		logger:        logger,
 		dialer:        outboundDialer,

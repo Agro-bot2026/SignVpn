@@ -39,7 +39,7 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 		port = 7300
 	}
 	return &Outbound{
-		Adapter:   outbound.NewAdapter(C.TypeBadVPN, tag, []string{N.NetworkTCP, N.NetworkUDP}, options.DialerOptions),
+		Adapter:    outbound.NewAdapterWithDialerOptions(C.TypeBadVPN, tag, []string{N.NetworkTCP, N.NetworkUDP}, options.DialerOptions),
 		ctx:       ctx,
 		logger:    logger,
 		dialer:    outboundDialer,
