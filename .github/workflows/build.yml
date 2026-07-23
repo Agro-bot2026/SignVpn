@@ -1,4 +1,4 @@
-name: Build SingVPN APK/AAB
+name: Build GhostVpn APK
 on:
   push: { branches: [main, master] }
   workflow_dispatch:
@@ -91,7 +91,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: SingVPN-APK
+          name: GhostVpn-APK
           path: /tmp/sb-android/app/build/outputs/apk/**/debug/*.apk
 
       - uses: actions/upload-artifact@v4
