@@ -202,7 +202,7 @@ class MainActivity : AppCompatActivity() {
 
         Thread {
             try {
-                val err = Libbox.startHTTPCustomTunnel(server, port, user, pass, payload, 1080L)
+                val err = Libbox.startHTTPCustomTunnel(server, port.toLong(), user, pass, payload, 1080L)
                 handler.post {
                     if (err != null) {
                         log("Error: $err")

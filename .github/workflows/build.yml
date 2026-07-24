@@ -56,7 +56,7 @@ jobs:
           }
           chmod +x gradlew
           export JAVA_HOME=$JAVA_HOME_17_X64
-          ./gradlew assembleDebug --stacktrace 2>&1
+          ./gradlew clean assembleDebug --stacktrace 2>&1
           echo "=== APK output ==="
           find /tmp/ghostvpn/app/build/outputs -name "*.apk" 2>/dev/null
 
