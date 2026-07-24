@@ -47,7 +47,16 @@ jobs:
           /tmp/gradle8/gradle-8.5/bin/gradle wrapper --gradle-version 8.5
 
       - name: Build APK
-        run: cd /tmp/ghostvpn && chmod +x gradlew && ./gradlew assembleDebug
+        run: |
+          cd /tmp/ghostvpn
+          ls -la gradlew 2>/dev/null || {
+            curl -sL https://services.gradle.org/distributions/gradle-8.5-bin.zip -o /tmp/g8.zip
+            unzip -q /tmp/g8.zip -d /tmp/g8
+            /tmp/g8/gradle-8.5/bin/gradle wrapper --gradle-version 8.5
+          }
+          chmod +x gradlew
+          export JAVA_HOME=$JAVA_HOME_17_X64
+          ./gradlew assembleDebug --stacktrace 2>&1 | tail -30
 
       - uses: actions/upload-artifact@v4
         with:
