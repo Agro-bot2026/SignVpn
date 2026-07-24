@@ -145,9 +145,7 @@ func startTunnel(server string, port int, user, password, payload string, socksP
     rendered := renderPayload(payload, server, fmt.Sprintf("%d", port))
     conn.Write([]byte(rendered))
 
-    if err := consumeHTTP(conn, 10*time.Second); err != nil { conn.Close(); return fmt.Errorf("http: %w", err) }
-    consumeHTTP(conn, 3*time.Second) // 200
-
+    // Modo SSH_DIRECT (dropbear): no leer respuesta HTTP, SSH directo
     sshCfg := &ssh.ClientConfig{
         User: user,
         Auth: []ssh.AuthMethod{ssh.Password(password)},
