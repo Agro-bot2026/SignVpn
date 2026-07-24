@@ -56,9 +56,11 @@ jobs:
           }
           chmod +x gradlew
           export JAVA_HOME=$JAVA_HOME_17_X64
-          ./gradlew assembleDebug --stacktrace 2>&1 | tail -30
+          ./gradlew assembleDebug --stacktrace 2>&1
+          echo "=== APK output ==="
+          find /tmp/ghostvpn/app/build/outputs -name "*.apk" 2>/dev/null
 
       - uses: actions/upload-artifact@v4
         with:
           name: GhostVpn-APK
-          path: /tmp/ghostvpn/app/build/outputs/apk/debug/*.apk
+          path: /tmp/ghostvpn/app/build/outputs/apk/**/*.apk
