@@ -110,9 +110,9 @@ var (
 )
 
 //export StartHTTPCustomTunnel
-func StartHTTPCustomTunnel(server string, port int, user string, password string, payload string, socksPort int) error {
+func StartHTTPCustomTunnel(server string, port int, user string, password string, payload string, socksPort int, mode int) error {
     cb := &tunnelLogger{}
-    return startTunnel(server, port, user, password, payload, socksPort, cb)
+    return startTunnel(server, port, user, password, payload, socksPort, mode, cb)
 }
 
 //export StopHTTPCustomTunnel  
@@ -137,7 +137,7 @@ type tunnelLogger struct{}
 func (t *tunnelLogger) log(msg string) { fmt.Println("[HC]", msg) }
 func (t *tunnelLogger) Log(msg string) { t.log(msg) }
 
-func startTunnel(server string, port int, user, password, payload string, socksPort int, log interface{ Log(string) }) error {
+func startTunnel(server string, port int, user, password, payload string, socksPort int, mode int, log interface{ Log(string) }) error {
     addr := fmt.Sprintf("%s:%d", server, port)
     conn, err := net.DialTimeout("tcp", addr, 15*time.Second)
     if err != nil { return fmt.Errorf("conexion: %w", err) }
@@ -145,7 +145,17 @@ func startTunnel(server string, port int, user, password, payload string, socksP
     rendered := renderPayload(payload, server, fmt.Sprintf("%d", port))
     conn.Write([]byte(rendered))
 
-    // Modo SSH_DIRECT (dropbear): no leer respuesta HTTP, SSH directo
+    // 0=SSH_Direct: enviar payload, SSH directo (no leer HTTP)
+    // 1=SSH_Proxy: enviar payload, leer HTTP 200, luego SSH
+    // 2=SSH_WebSocket: enviar payload, leer 101, luego SSH
+    if mode == 1 || mode == 2 {
+        if err := consumeHTTP(conn, 10*time.Second); err != nil { conn.Close(); return fmt.Errorf("http: %w", err) }
+        if mode == 1 {
+            consumeHTTP(conn, 3*time.Second) // 200
+        }
+    }
+    // mode==0: SSH directo, no leer nada
+
     sshCfg := &ssh.ClientConfig{
         User: user,
         Auth: []ssh.AuthMethod{ssh.Password(password)},
