@@ -1,13 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.GhostVpn" parent="Theme.MaterialComponents.NoActionBar">
-        <item name="android:windowFullscreen">true</item>
+    <style name="Theme.GhostVpn" parent="Theme.AppCompat.NoActionBar">
         <item name="android:windowNoTitle">true</item>
         <item name="android:statusBarColor">#0d0d0d</item>
         <item name="android:navigationBarColor">#0d0d0d</item>
-        <item name="colorPrimary">#00e676</item>
-        <item name="colorPrimaryDark">#0d0d0d</item>
-        <item name="colorAccent">#00e676</item>
-        <item name="android:windowBackground">#0d0d0d</item>
     </style>
 </resources>

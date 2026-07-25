@@ -3,16 +3,13 @@
     package="com.ghostvpn">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <application
         android:allowBackup="true"
         android:label="GhostVpn"
-        android:icon="@drawable/ghostvpn_icon"
         android:supportsRtl="true"
         android:theme="@style/Theme.GhostVpn"
         android:usesCleartextTraffic="true">
-        <activity android:name=".MainActivity" android:exported="true"
-            android:configChanges="orientation|screenSize">
+        <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
