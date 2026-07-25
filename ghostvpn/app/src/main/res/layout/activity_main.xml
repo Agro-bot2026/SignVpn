@@ -27,40 +27,36 @@
                 android:textSize="20sp"
                 android:textStyle="bold" />
 
-            <ImageButton
+            <TextView
                 android:id="@+id/btnSettings"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:background="?selectableItemBackgroundBorderless"
-                android:src="@android:drawable/ic_menu_preferences"
-                android:contentDescription="Ajustes"
+                android:text="⚙"
                 android:tint="@color/text_hint" />
 
-            <ImageButton
+            <TextView
                 android:id="@+id/btnImport"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:background="?selectableItemBackgroundBorderless"
-                android:src="@android:drawable/ic_menu_upload"
-                android:contentDescription="Importar"
+                android:text="📤"
                 android:tint="@color/text_hint" />
 
-            <ImageButton
+            <TextView
                 android:id="@+id/btnExport"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:background="?selectableItemBackgroundBorderless"
-                android:src="@android:drawable/ic_menu_save"
-                android:contentDescription="Exportar"
+                android:text="💾"
                 android:tint="@color/text_hint" />
 
-            <ImageButton
+            <TextView
                 android:id="@+id/btnOverflow"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:background="?selectableItemBackgroundBorderless"
-                android:src="@android:drawable/ic_menu_moreoverflow"
-                android:contentDescription="Menu"
+                android:text="⋮"
                 android:tint="@color/text_hint" />
         </androidx.appcompat.widget.Toolbar>
 
@@ -100,7 +96,7 @@
         android:layout_height="56dp"
         android:layout_gravity="bottom|end"
         android:layout_margin="20dp"
-        android:src="@android:drawable/ic_menu_add"
+        android:text="+"
         app:backgroundTint="@color/green_accent"
         app:tint="#000000"
         app:fabSize="normal" />
