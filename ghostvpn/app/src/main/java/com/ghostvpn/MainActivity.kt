@@ -39,12 +39,12 @@ class MainActivity : AppCompatActivity(), SshFragment.ConnectionCallback, LogFra
         setContentView(R.layout.activity_main)
 
         // Toolbar
-        findViewById<ImageButton>(R.id.btnImport).setOnClickListener { importProfile() }
-        findViewById<ImageButton>(R.id.btnExport).setOnClickListener { exportProfile() }
-        findViewById<ImageButton>(R.id.btnSettings).setOnClickListener {
+        findViewById<View>(R.id.btnImport).setOnClickListener { importProfile() }
+        findViewById<View>(R.id.btnExport).setOnClickListener { exportProfile() }
+        findViewById<View>(R.id.btnSettings).setOnClickListener {
             Toast.makeText(this, "Configuracion", Toast.LENGTH_SHORT).show()
         }
-        findViewById<ImageButton>(R.id.btnOverflow).setOnClickListener {
+        findViewById<View>(R.id.btnOverflow).setOnClickListener {
             Toast.makeText(this, "GhostVpn v1.0", Toast.LENGTH_SHORT).show()
         }
 
