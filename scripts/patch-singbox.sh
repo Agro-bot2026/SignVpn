@@ -99,6 +99,8 @@ import (
 	"sync"
 	"time"
 
+	"crypto/tls"
+
 	"golang.org/x/crypto/ssh"
 )
 
@@ -139,35 +141,72 @@ func (t *tunnelLogger) Log(msg string) { t.log(msg) }
 
 func startTunnel(server string, port int, user, password, payload string, socksPort int, mode int, log interface{ Log(string) }) error {
     addr := fmt.Sprintf("%s:%d", server, port)
-    conn, err := net.DialTimeout("tcp", addr, 15*time.Second)
-    if err != nil { return fmt.Errorf("conexion: %w", err) }
+    
+    // Modes:
+    // 0 = SSH Direct: enviar payload, SSH directo (no leer HTTP)
+    // 1 = SSH+Proxy: enviar payload, leer HTTP 200, luego SSH
+    // 2 = SSH WebSocket: enviar payload WS, leer 101, luego SSH  
+    // 3 = SSL+Proxy: TLS al proxy, enviar payload, leer 200, SSH
+    // 4 = SSL Direct: TLS directo al server, SSH
+
+    var conn net.Conn
+    var err error
+
+    if mode == 3 || mode == 4 {
+        // TLS connection
+        tlsCfg := &tls.Config{
+            ServerName:         server,
+            InsecureSkipVerify: true,
+        }
+        conn, err = tls.DialWithDialer(&net.Dialer{Timeout: 15 * time.Second}, "tcp", addr, tlsCfg)
+    } else {
+        conn, err = net.DialTimeout("tcp", addr, 15*time.Second)
+    }
+    if err != nil {
+        return fmt.Errorf("conexion: %w", err)
+    }
 
     rendered := renderPayload(payload, server, fmt.Sprintf("%d", port))
     conn.Write([]byte(rendered))
 
-    // 0=SSH_Direct: enviar payload, SSH directo (no leer HTTP)
-    // 1=SSH_Proxy: enviar payload, leer HTTP 200, luego SSH
-    // 2=SSH_WebSocket: enviar payload, leer 101, luego SSH
-    if mode == 1 || mode == 2 {
-        if err := consumeHTTP(conn, 10*time.Second); err != nil { conn.Close(); return fmt.Errorf("http: %w", err) }
-        if mode == 1 {
-            consumeHTTP(conn, 3*time.Second) // 200
+    if mode == 1 || mode == 3 {
+        // SSH+Proxy o SSL+Proxy: leer HTTP 200
+        if err := consumeHTTP(conn, 10*time.Second); err != nil {
+            conn.Close()
+            return fmt.Errorf("http: %w", err)
+        }
+    } else if mode == 2 {
+        // SSH WebSocket: leer HTTP 101 Switching Protocols
+        conn.SetReadDeadline(time.Now().Add(10 * time.Second))
+        var buf [1024]byte
+        n, _ := conn.Read(buf[:])
+        conn.SetReadDeadline(time.Time{})
+        resp := string(buf[:n])
+        if !strings.Contains(resp, "101") && !strings.Contains(resp, "Switching") {
+            conn.Close()
+            return fmt.Errorf("ws: se esperaba 101, got: %s", resp[:min(n, 80)])
         }
     }
-    // mode==0: SSH directo, no leer nada
+    // mode 0 y 4: no leer respuesta
 
     sshCfg := &ssh.ClientConfig{
-        User: user,
-        Auth: []ssh.AuthMethod{ssh.Password(password)},
+        User:            user,
+        Auth:            []ssh.AuthMethod{ssh.Password(password)},
         HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-        Timeout: 15*time.Second,
+        Timeout:         15 * time.Second,
     }
     sshCon, chans, reqs, err := ssh.NewClientConn(conn, addr, sshCfg)
-    if err != nil { conn.Close(); return fmt.Errorf("ssh: %w", err) }
+    if err != nil {
+        conn.Close()
+        return fmt.Errorf("ssh: %w", err)
+    }
     client := ssh.NewClient(sshCon, chans, reqs)
 
     ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", socksPort))
-    if err != nil { client.Close(); return fmt.Errorf("socks: %w", err) }
+    if err != nil {
+        client.Close()
+        return fmt.Errorf("socks: %w", err)
+    }
 
     muTunnel.Lock()
     activeSSHClient = client
@@ -178,16 +217,21 @@ func startTunnel(server string, port int, user, password, payload string, socksP
     go func() {
         for {
             select {
-            case <-stopTunnelCh: return
+            case <-stopTunnelCh:
+                return
             default:
             }
             c, err := ln.Accept()
-            if err != nil { return }
+            if err != nil {
+                return
+            }
             go handleSocks5(c, client)
         }
     }()
     return nil
 }
+
+func min(a, b int) int { if a < b { return a }; return b }
 
 func renderPayload(template, host, port string) string {
     p := template
