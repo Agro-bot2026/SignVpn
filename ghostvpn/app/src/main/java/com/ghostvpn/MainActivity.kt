@@ -1,5 +1,6 @@
 package com.ghostvpn
 
+import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
 import android.widget.*
@@ -63,7 +64,7 @@ class MainActivity : AppCompatActivity(), SshFragment.ConnectionCallback, LogFra
             val options = arrayOf("Importar perfil", "Exportar perfil", "Importar archivo")
             AlertDialog.Builder(this)
                 .setTitle("Gestión de perfil")
-                .setItems(options) { _, which ->
+                .setItems(options) { _: android.content.DialogInterface, which: Int ->
                     when (which) {
                         0 -> importProfile()
                         1 -> exportProfile()
