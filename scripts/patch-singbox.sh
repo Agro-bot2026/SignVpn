@@ -92,7 +92,6 @@ cat > $SINGBOX/experimental/libbox/httpcustom.go << 'GOEOF'
 package libbox
 
 import (
-    "bufio"
     "bytes"
     "fmt"
     "math/rand"
