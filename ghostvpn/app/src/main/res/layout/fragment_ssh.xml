@@ -2,7 +2,7 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0d0d0d">
+    android:background="@color/bg_dark">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -18,16 +18,16 @@
             android:layout_marginBottom="16dp"
             android:hint="ip:port@user:pass"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-            app:boxStrokeColor="#00e676"
+            app:boxStrokeColor="@color/green_accent"
             app:boxStrokeWidth="1dp"
-            app:hintTextColor="#888888">
+            app:hintTextColor="@color/text_hint">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etConnection"
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
                 android:text="149.33.19.164:80@Charly100:"
-                android:textColor="#ffffff"
+                android:textColor="@color/text_primary"
                 android:textColorHint="#555555"
                 android:textSize="14sp"
                 android:inputType="text" />
@@ -41,16 +41,16 @@
             android:layout_marginBottom="16dp"
             android:hint="Payload"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-            app:boxStrokeColor="#00e676"
+            app:boxStrokeColor="@color/green_accent"
             app:boxStrokeWidth="1dp"
-            app:hintTextColor="#888888">
+            app:hintTextColor="@color/text_hint">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/etPayload"
                 android:layout_width="match_parent"
                 android:layout_height="100dp"
                 android:gravity="top"
-                android:textColor="#ffffff"
+                android:textColor="@color/text_primary"
                 android:textColorHint="#555555"
                 android:textSize="11sp"
                 android:inputType="textMultiLine" />
@@ -61,7 +61,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Opciones"
-            android:textColor="#888888"
+            android:textColor="@color/text_hint"
             android:textSize="12sp"
             android:layout_marginBottom="8dp" />
 
@@ -136,7 +136,7 @@
             android:layout_width="match_parent"
             android:layout_height="52dp"
             android:text="CONNECT"
-            android:textColor="#00e676"
+            android:textColor="@color/green_accent"
             android:textSize="16sp"
             android:textStyle="bold"
             android:letterSpacing="2"
@@ -149,7 +149,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="⏸ Desconectado"
-            android:textColor="#888888"
+            android:textColor="@color/text_hint"
             android:textSize="13sp"
             android:gravity="center"
             android:layout_marginTop="12dp" />

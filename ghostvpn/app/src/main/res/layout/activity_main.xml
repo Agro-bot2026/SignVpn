@@ -4,26 +4,26 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0d0d0d">
+    android:background="@color/bg_dark">
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#0d0d0d"
+        android:background="@color/bg_dark"
         app:elevation="0dp">
 
         <androidx.appcompat.widget.Toolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="56dp"
-            android:background="#0d0d0d">
+            android:background="@color/bg_dark">
 
             <TextView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="GhostVpn"
-                android:textColor="#00e676"
+                android:textColor="@color/green_accent"
                 android:textSize="20sp"
                 android:textStyle="bold" />
 
@@ -34,7 +34,7 @@
                 android:background="?selectableItemBackgroundBorderless"
                 android:src="@android:drawable/ic_menu_preferences"
                 android:contentDescription="Ajustes"
-                android:tint="#888888" />
+                android:tint="@color/text_hint" />
 
             <ImageButton
                 android:id="@+id/btnImport"
@@ -43,7 +43,7 @@
                 android:background="?selectableItemBackgroundBorderless"
                 android:src="@android:drawable/ic_menu_upload"
                 android:contentDescription="Importar"
-                android:tint="#888888" />
+                android:tint="@color/text_hint" />
 
             <ImageButton
                 android:id="@+id/btnExport"
@@ -52,7 +52,7 @@
                 android:background="?selectableItemBackgroundBorderless"
                 android:src="@android:drawable/ic_menu_save"
                 android:contentDescription="Exportar"
-                android:tint="#888888" />
+                android:tint="@color/text_hint" />
 
             <ImageButton
                 android:id="@+id/btnOverflow"
@@ -61,17 +61,17 @@
                 android:background="?selectableItemBackgroundBorderless"
                 android:src="@android:drawable/ic_menu_moreoverflow"
                 android:contentDescription="Menu"
-                android:tint="#888888" />
+                android:tint="@color/text_hint" />
         </androidx.appcompat.widget.Toolbar>
 
         <com.google.android.material.tabs.TabLayout
             android:id="@+id/tabLayout"
             android:layout_width="match_parent"
             android:layout_height="48dp"
-            android:background="#0d0d0d"
-            app:tabIndicatorColor="#00e676"
+            android:background="@color/bg_dark"
+            app:tabIndicatorColor="@color/green_accent"
             app:tabIndicatorHeight="3dp"
-            app:tabSelectedTextColor="#00e676"
+            app:tabSelectedTextColor="@color/green_accent"
             app:tabTextColor="#666666"
             app:tabMode="fixed"
             app:tabGravity="fill">
@@ -101,7 +101,7 @@
         android:layout_gravity="bottom|end"
         android:layout_margin="20dp"
         android:src="@android:drawable/ic_menu_add"
-        app:backgroundTint="#00e676"
+        app:backgroundTint="@color/green_accent"
         app:tint="#000000"
         app:fabSize="normal" />
 
