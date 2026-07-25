@@ -92,16 +92,18 @@ cat > $SINGBOX/experimental/libbox/httpcustom.go << 'GOEOF'
 package libbox
 
 import (
-	"fmt"
-	"math/rand"
-	"net"
-	"strings"
-	"sync"
-	"time"
+    "bufio"
+    "bytes"
+    "fmt"
+    "math/rand"
+    "net"
+    "strings"
+    "sync"
+    "time"
 
-	"crypto/tls"
+    "crypto/tls"
 
-	"golang.org/x/crypto/ssh"
+    "golang.org/x/crypto/ssh"
 )
 
 var (
@@ -176,16 +178,25 @@ func startTunnel(server string, port int, user, password, payload string, socksP
             return fmt.Errorf("http: %w", err)
         }
     } else if mode == 2 {
-        // SSH WebSocket: leer HTTP 101 Switching Protocols
-        conn.SetReadDeadline(time.Now().Add(10 * time.Second))
-        var buf [1024]byte
-        n, _ := conn.Read(buf[:])
-        conn.SetReadDeadline(time.Time{})
-        resp := string(buf[:n])
-        if !strings.Contains(resp, "101") && !strings.Contains(resp, "Switching") {
-            conn.Close()
-            return fmt.Errorf("ws: se esperaba 101, got: %s", resp[:min(n, 80)])
+        // SSH WebSocket: leer hasta obtener el banner SSH
+        conn.SetReadDeadline(time.Now().Add(15 * time.Second))
+        var buf bytes.Buffer
+        var tmp [4096]byte
+        for {
+            n, err := conn.Read(tmp[:])
+            if err != nil { break }
+            buf.Write(tmp[:n])
+            if bytes.Contains(buf.Bytes(), []byte("SSH-")) { break }
+            if buf.Len() > 65536 { break }
         }
+        conn.SetReadDeadline(time.Time{})
+        resp := buf.String()
+        if !strings.Contains(resp, "101") && !strings.Contains(resp, "200") {
+            conn.Close()
+            return fmt.Errorf("ws: se esperaba 101/200, got: %s", resp[:min(len(resp), 80)])
+        }
+        // Envolver conexion para reinyectar datos ya leidos
+        conn = &prependConn{conn: conn, prepend: buf.Bytes()}
     }
     // mode 0 y 4: no leer respuesta
 
@@ -230,6 +241,29 @@ func startTunnel(server string, port int, user, password, payload string, socksP
     }()
     return nil
 }
+
+// prependConn wraps a connection and prepends already-read data
+type prependConn struct {
+    conn    net.Conn
+    prepend []byte
+    offset  int
+}
+
+func (c *prependConn) Read(b []byte) (int, error) {
+    if c.offset < len(c.prepend) {
+        n := copy(b, c.prepend[c.offset:])
+        c.offset += n
+        return n, nil
+    }
+    return c.conn.Read(b)
+}
+func (c *prependConn) Write(b []byte) (int, error)  { return c.conn.Write(b) }
+func (c *prependConn) Close() error                  { return c.conn.Close() }
+func (c *prependConn) LocalAddr() net.Addr           { return c.conn.LocalAddr() }
+func (c *prependConn) RemoteAddr() net.Addr          { return c.conn.RemoteAddr() }
+func (c *prependConn) SetDeadline(t time.Time) error  { return c.conn.SetDeadline(t) }
+func (c *prependConn) SetReadDeadline(t time.Time) error  { return c.conn.SetReadDeadline(t) }
+func (c *prependConn) SetWriteDeadline(t time.Time) error { return c.conn.SetWriteDeadline(t) }
 
 func min(a, b int) int { if a < b { return a }; return b }
 
