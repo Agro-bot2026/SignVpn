@@ -43,8 +43,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var swBadvpn: Switch
     private lateinit var swReconnect: Switch
     private lateinit var spDNS: Spinner
+    private lateinit var spMode: Spinner
 
     private var isRunning = false
+    private var currentMode = 0L
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -100,6 +102,20 @@ class MainActivity : AppCompatActivity() {
         cred.addView(etUser)
         cred.addView(etPass)
         l.addView(cred)
+
+        // Connection mode selector
+        l.addView(TextView(this).apply { text = "Modo de conexion"; textSize = 14f; setPadding(0, 12, 0, 2) })
+        spMode = Spinner(this).apply {
+            adapter = ArrayAdapter(this@MainActivity,
+                android.R.layout.simple_spinner_dropdown_item,
+                arrayOf("0 - SSH Direct", "1 - SSH+Proxy", "2 - SSH WebSocket",
+                    "3 - SSL+Proxy", "4 - SSL Direct"))
+        }
+        l.addView(spMode)
+        spMode.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(p: AdapterView<*>?, v: View?, pos: Int, id: Long) { this@MainActivity.currentMode = pos.toLong() }
+            override fun onNothingSelected(p: AdapterView<*>?) {}
+        }
 
         // Payload editor
         etPayload = campo("Payload", "CONNECT / HTTP/1.1...", "", true)
@@ -202,7 +218,7 @@ class MainActivity : AppCompatActivity() {
 
         Thread {
             try {
-                val err = Libbox.startHTTPCustomTunnel(server, port.toLong(), user, pass, payload, 1080L, 0L)
+                val err = Libbox.startHTTPCustomTunnel(server, port.toLong(), user, pass, payload, 1080L, currentMode)
                 handler.post {
                     if (err != null) {
                         log("Error: $err")
@@ -313,6 +329,8 @@ class MainActivity : AppCompatActivity() {
         etDNS.setText(p.getString("dns", "8.8.8.8"))
         swBadvpn.isChecked = p.getBoolean("badvpn", false)
         swReconnect.isChecked = p.getBoolean("reconnect", false)
+        currentMode = p.getLong("mode", 0)
+        spMode.setSelection(currentMode.toInt())
     }
 
     override fun onPause() {
@@ -324,6 +342,7 @@ class MainActivity : AppCompatActivity() {
             putString("dns", etDNS.text.toString())
             putBoolean("badvpn", swBadvpn.isChecked)
             putBoolean("reconnect", swReconnect.isChecked)
+            putLong("mode", currentMode)
             apply()
         }
     }
