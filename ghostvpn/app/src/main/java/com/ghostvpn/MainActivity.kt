@@ -61,7 +61,7 @@ class MainActivity : AppCompatActivity(), SshFragment.ConnectionCallback, LogFra
         pagerAdapter.getLogFragment().setCallback(this)
 
         // FAB for import/export
-        findViewById<FloatingActionButton>(R.id.fabImport).setOnClickListener {
+        findViewById<View>(R.id.fabImport).setOnClickListener {
             val options = arrayOf("Importar perfil", "Exportar perfil", "Importar archivo")
             AlertDialog.Builder(this)
                 .setTitle("Gestión de perfil")
@@ -74,8 +74,6 @@ class MainActivity : AppCompatActivity(), SshFragment.ConnectionCallback, LogFra
                 }
                 .show()
         }
-
-        cargarPrefs()
     }
 
     // ─── Connection Callback ───
@@ -208,16 +206,7 @@ class MainActivity : AppCompatActivity(), SshFragment.ConnectionCallback, LogFra
         }
     }
 
-    private fun cargarPrefs() {
-        val p = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-        val server = p.getString("server", "149.33.19.164") ?: "149.33.19.164"
-        val port = p.getInt("port", 80)
-        val user = p.getString("user", "Charly100") ?: "Charly100"
-        val pass = p.getString("pass", "") ?: ""
-        val ssh = pagerAdapter.getSshFragment()
-        ssh.setConnectionText("$server:$port@$user:$pass")
-        currentMode = p.getLong("mode", 2)
-    }
+
 
     override fun onPause() {
         super.onPause()

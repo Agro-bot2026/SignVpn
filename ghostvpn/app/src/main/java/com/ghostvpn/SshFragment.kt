@@ -59,6 +59,19 @@ class SshFragment : Fragment() {
         return v
     }
 
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        // Load saved connection string
+        val prefs = activity?.getSharedPreferences("ghostvpn_prefs", 0)
+        if (prefs != null) {
+            val server = prefs.getString("server", "149.33.19.164") ?: "149.33.19.164"
+            val port = prefs.getInt("port", 80)
+            val user = prefs.getString("user", "Charly100") ?: "Charly100"
+            val pass = prefs.getString("pass", "") ?: ""
+            etConnection.setText("$server:$port@$user:$pass")
+        }
+    }
+
     private fun parseConnectionString() {
         val text = etConnection.text.toString().trim()
         if (text.contains("@")) {
