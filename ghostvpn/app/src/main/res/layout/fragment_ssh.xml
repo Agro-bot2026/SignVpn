@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0d0d0d">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- Connection string field -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/connectionInputLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:hint="ip:port@user:pass"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            app:boxStrokeColor="#00e676"
+            app:boxStrokeWidth="1dp"
+            app:hintTextColor="#888888">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etConnection"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="149.33.19.164:80@Charly100:"
+                android:textColor="#ffffff"
+                android:textColorHint="#555555"
+                android:textSize="14sp"
+                android:inputType="text" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Payload field -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/payloadInputLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:hint="Payload"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            app:boxStrokeColor="#00e676"
+            app:boxStrokeWidth="1dp"
+            app:hintTextColor="#888888">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etPayload"
+                android:layout_width="match_parent"
+                android:layout_height="100dp"
+                android:gravity="top"
+                android:textColor="#ffffff"
+                android:textColorHint="#555555"
+                android:textSize="11sp"
+                android:inputType="textMultiLine" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Checkboxes grid -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Opciones"
+            android:textColor="#888888"
+            android:textSize="12sp"
+            android:layout_marginBottom="8dp" />
+
+        <GridLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:columnCount="2"
+            android:rowCount="4"
+            android:layout_marginBottom="20dp">
+
+            <CheckBox android:id="@+id/chkPayload"
+                android:text="Use Payload"
+                android:textColor="#cccccc"
+                android:textSize="13sp"
+                android:layout_columnWeight="1"
+                android:layout_width="0dp"
+                android:checked="true" />
+
+            <CheckBox android:id="@+id/chkSSL"
+                android:text="SSL"
+                android:textColor="#cccccc"
+                android:textSize="13sp"
+                android:layout_columnWeight="1"
+                android:layout_width="0dp" />
+
+            <CheckBox android:id="@+id/chkEnhanced"
+                android:text="Enhanced"
+                android:textColor="#cccccc"
+                android:textSize="13sp"
+                android:layout_columnWeight="1"
+                android:layout_width="0dp" />
+
+            <CheckBox android:id="@+id/chkSlowDns"
+                android:text="SlowDns"
+                android:textColor="#cccccc"
+                android:textSize="13sp"
+                android:layout_columnWeight="1"
+                android:layout_width="0dp" />
+
+            <CheckBox android:id="@+id/chkDNS"
+                android:text="Enable DNS"
+                android:textColor="#cccccc"
+                android:textSize="13sp"
+                android:layout_columnWeight="1"
+                android:layout_width="0dp" />
+
+            <CheckBox android:id="@+id/chkUDP"
+                android:text="UDP Custom"
+                android:textColor="#cccccc"
+                android:textSize="13sp"
+                android:layout_columnWeight="1"
+                android:layout_width="0dp" />
+
+            <CheckBox android:id="@+id/chkPsiphon"
+                android:text="Psiphon"
+                android:textColor="#cccccc"
+                android:textSize="13sp"
+                android:layout_columnWeight="1"
+                android:layout_width="0dp" />
+
+            <CheckBox android:id="@+id/chkV2ray"
+                android:text="V2ray"
+                android:textColor="#cccccc"
+                android:textSize="13sp"
+                android:layout_columnWeight="1"
+                android:layout_width="0dp" />
+        </GridLayout>
+
+        <!-- Connect button -->
+        <Button
+            android:id="@+id/btnConnect"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:text="CONNECT"
+            android:textColor="#00e676"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:letterSpacing="2"
+            android:background="@drawable/btn_connect_border"
+            android:textAllCaps="true" />
+
+        <!-- Status -->
+        <TextView
+            android:id="@+id/tvStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="⏸ Desconectado"
+            android:textColor="#888888"
+            android:textSize="13sp"
+            android:gravity="center"
+            android:layout_marginTop="12dp" />
+
+        <TextView
+            android:id="@+id/tvServerInfo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textColor="#555555"
+            android:textSize="11sp"
+            android:gravity="center" />
+
+    </LinearLayout>
+</ScrollView>

@@ -1,14 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.GhostVpn" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <item name="colorPrimary">#FF6A00</item>
-        <item name="colorPrimaryVariant">#CC5500</item>
-        <item name="colorOnPrimary">#FFFFFF</item>
-        <item name="colorSecondary">#FF8C00</item>
-        <item name="colorOnSecondary">#FFFFFF</item>
-        <item name="colorSurface">#1A1A2E</item>
-        <item name="colorOnSurface">#E0E0E0</item>
-        <item name="android:colorBackground">#0F0F23</item>
-        <item name="colorOnBackground">#E0E0E0</item>
+    <style name="Theme.GhostVpn" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:statusBarColor">#0d0d0d</item>
+        <item name="android:navigationBarColor">#0d0d0d</item>
+        <item name="colorPrimary">#00e676</item>
+        <item name="colorPrimaryDark">#0d0d0d</item>
+        <item name="colorAccent">#00e676</item>
+        <item name="android:windowBackground">#0d0d0d</item>
     </style>
 </resources>
