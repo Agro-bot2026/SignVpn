@@ -112,13 +112,11 @@ var (
 	stopTunnelCh      chan struct{}
 )
 
-//export StartHTTPCustomTunnel
 func StartHTTPCustomTunnel(server string, port int, user string, password string, payload string, socksPort int, mode int) error {
     cb := &tunnelLogger{}
     return startTunnel(server, port, user, password, payload, socksPort, mode, cb)
 }
 
-//export StopHTTPCustomTunnel  
 func StopHTTPCustomTunnel() {
     muTunnel.Lock()
     defer muTunnel.Unlock()
