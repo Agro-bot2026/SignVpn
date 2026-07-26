@@ -180,6 +180,9 @@ class MainActivity : AppCompatActivity() {
             try {
                 val json = contentResolver.openInputStream(intent.data!!)?.bufferedReader()?.readText() ?: return
                 importFromJson(json)
+                Toast.makeText(this, "✅ Config .gv importada", Toast.LENGTH_SHORT).show()
+                // Cerrar app para volver a WhatsApp
+                finish()
             } catch (e: Exception) {
                 log("Error al abrir archivo: ${e.message}")
             }
