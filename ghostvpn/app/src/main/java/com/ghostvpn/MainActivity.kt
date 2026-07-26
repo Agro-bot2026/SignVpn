@@ -35,16 +35,18 @@ class MainActivity : AppCompatActivity() {
         tvStatus = findViewById(R.id.tvStatus)
         tvLog = findViewById(R.id.tvLog)
 
-        // Handle .gv file opened directly
-        handleIntent(intent)
-
         // Toolbar buttons
         findViewById<View>(R.id.btnImport).setOnClickListener { importConfig() }
         findViewById<View>(R.id.btnExport).setOnClickListener { exportConfig() }
 
-        // Default payload (placeholder - se reemplaza al importar .gv)
+        // Inicializar campos vacios con hint (ANTES de handleIntent)
         etPayload.setHint("Payload (se llena al importar .gv)")
         etPayload.setText("")
+        etConnection.setHint("ip:puerto@user:pass")
+        etConnection.setText("")
+
+        // Handle .gv file opened directly (DESPUES de inicializar)
+        handleIntent(intent)
 
         val modes = arrayOf("0 - SSH Direct", "1 - SSH+Proxy", "2 - SSH WebSocket",
             "3 - SSL+Proxy", "4 - SSL Direct")
