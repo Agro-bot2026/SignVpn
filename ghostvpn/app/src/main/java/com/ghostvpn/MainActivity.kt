@@ -43,7 +43,8 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.btnExport).setOnClickListener { exportConfig() }
 
         // Default payload (placeholder - se reemplaza al importar .gv)
-        etPayload.setText("CONNECT / HTTP/1.1[crlf]Host: ejemplo.com[crlf][crlf]")
+        etPayload.setHint("Payload (se llena al importar .gv)")
+        etPayload.setText("")
 
         val modes = arrayOf("0 - SSH Direct", "1 - SSH+Proxy", "2 - SSH WebSocket",
             "3 - SSL+Proxy", "4 - SSL Direct")
@@ -222,13 +223,18 @@ class MainActivity : AppCompatActivity() {
         val payload = obj.optString("payload", "")
         val mode = obj.optInt("mode", 2)
 
+        val colorVerde = android.graphics.Color.parseColor("#00e676")
+        etConnection.setTextColor(colorVerde)
         etConnection.setText("$server:$port@$user:$pass")
-        if (payload.isNotEmpty()) etPayload.setText(payload)
+        if (payload.isNotEmpty()) {
+            etPayload.setTextColor(colorVerde)
+            etPayload.setText(payload)
+        }
         spMode.setSelection(mode)
         currentMode = mode.toLong()
 
-        Toast.makeText(this, "Config .gv importada", Toast.LENGTH_SHORT).show()
-        log("Importada config: $server:$port@$user")
+        Toast.makeText(this, "✅ Config .gv importada", Toast.LENGTH_SHORT).show()
+        log("Importada config: $server:$port@$user ($mode)")
     }
 
     companion object {
