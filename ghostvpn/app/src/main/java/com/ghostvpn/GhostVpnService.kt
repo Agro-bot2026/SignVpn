@@ -44,7 +44,7 @@ class GhostVpnService : VpnService() {
                 outStream?.write(byteArrayOf(0x05, 0x01, 0x00)) // VER, NMETHODS, NO AUTH
                 val resp = ByteArray(2)
                 inStream?.read(resp)
-                if (resp[0] != 0x05 || resp[1] != 0x00) return false
+                if (resp[0].toInt() != 5 || resp[1].toInt() != 0) return false
 
                 // Build SOCKS5 request
                 val dstBytes = dstIp.toByteArray(Charsets.UTF_8)
@@ -61,7 +61,7 @@ class GhostVpnService : VpnService() {
                 outStream?.write(req)
                 val rep = ByteArray(10)
                 inStream?.read(rep)
-                if (rep[1] != 0x00) return false
+                if (rep[1].toInt() != 0) return false
 
                 connected = true
                 true
@@ -99,13 +99,12 @@ class GhostVpnService : VpnService() {
         if (isRunning) return START_STICKY
 
         val builder = Builder()
-        builder.setName("GhostVPN Tun")
+        builder.setSession("GhostVPN")
         builder.setMtu(1500)
         builder.addAddress("10.0.0.2", 32)
         builder.addRoute("0.0.0.0", 0)
         builder.addDnsServer("8.8.8.8")
         builder.addDnsServer("1.1.1.1")
-        builder.setBlocking(true)
 
         tunInterface = builder.establish() ?: run {
             stopSelf()
