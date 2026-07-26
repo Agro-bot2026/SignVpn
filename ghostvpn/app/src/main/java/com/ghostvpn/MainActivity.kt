@@ -215,6 +215,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun importFromJson(json: String) {
+        log("📄 Leyendo .gv: ${json.take(100)}...")
         val obj = JSONObject(json)
         val server = obj.optString("server", "149.33.19.164")
         val port = obj.optInt("port", 80)
@@ -226,15 +227,15 @@ class MainActivity : AppCompatActivity() {
         val colorVerde = android.graphics.Color.parseColor("#00e676")
         etConnection.setTextColor(colorVerde)
         etConnection.setText("$server:$port@$user:$pass")
-        if (payload.isNotEmpty()) {
-            etPayload.setTextColor(colorVerde)
-            etPayload.setText(payload)
-        }
+        etPayload.setTextColor(colorVerde)
+        etPayload.setText(payload)
+        log("  Payload: ${payload.take(50)}...")
+        log("  Payload length: ${payload.length}")
         spMode.setSelection(mode)
         currentMode = mode.toLong()
 
         Toast.makeText(this, "✅ Config .gv importada", Toast.LENGTH_SHORT).show()
-        log("Importada config: $server:$port@$user ($mode)")
+        log("✅ Importada config: $server:$port@$user ($mode)")
     }
 
     companion object {
