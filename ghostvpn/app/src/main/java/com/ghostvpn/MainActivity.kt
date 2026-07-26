@@ -42,14 +42,8 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.btnImport).setOnClickListener { importConfig() }
         findViewById<View>(R.id.btnExport).setOnClickListener { exportConfig() }
 
-        // Default payload
-        etPayload.setText(
-            "CONNECT / HTTP/1.1[crlf]Host: recargas.personal.com.ar[crlf][crlf]" +
-            "[split][crlf][crlf]GET / HTTP/1.1[crlf]Host: recargas.personal.com.ar[lf][lf]" +
-            "GET /vpsx HTTP/1.1[crlf]Host:[rotate=cdn1.panda2.fun]" +
-            "[lf]Backend: vps146[lf]Connection: Upgrade[lf]Upgrade: websocket[lf]" +
-            "User-Agent: Googlebot/2.1[lf][lf]"
-        )
+        // Default payload (placeholder - se reemplaza al importar .gv)
+        etPayload.setText("CONNECT / HTTP/1.1[crlf]Host: ejemplo.com[crlf][crlf]")
 
         val modes = arrayOf("0 - SSH Direct", "1 - SSH+Proxy", "2 - SSH WebSocket",
             "3 - SSL+Proxy", "4 - SSL Direct")
