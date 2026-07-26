@@ -38,6 +38,12 @@ class MainActivity : AppCompatActivity() {
         // Toolbar buttons
         findViewById<View>(R.id.btnImport).setOnClickListener { importConfig() }
         findViewById<View>(R.id.btnExport).setOnClickListener { exportConfig() }
+        findViewById<View>(R.id.btnCopyLog).setOnClickListener {
+            val log = tvLog.text.toString()
+            val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("GhostVPN Log", log))
+            Toast.makeText(this, "✅ Log copiado", Toast.LENGTH_SHORT).show()
+        }
 
         // Inicializar campos vacios con hint (ANTES de handleIntent)
         etPayload.setHint("Payload (se llena al importar .gv)")
