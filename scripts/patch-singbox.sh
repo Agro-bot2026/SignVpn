@@ -112,9 +112,13 @@ var (
 	stopTunnelCh      chan struct{}
 )
 
-func StartHTTPCustomTunnel(server string, port int, user string, password string, payload string, socksPort int, mode int) error {
+func StartHTTPCustomTunnel(server string, port int, user string, password string, payload string, socksPort int, mode int) string {
     cb := &tunnelLogger{}
-    return startTunnel(server, port, user, password, payload, socksPort, mode, cb)
+    err := startTunnel(server, port, user, password, payload, socksPort, mode, cb)
+    if err != nil {
+        return err.Error()
+    }
+    return ""
 }
 
 func StopHTTPCustomTunnel() {

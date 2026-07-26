@@ -108,11 +108,11 @@ class MainActivity : AppCompatActivity() {
             try {
                 val err = Libbox.startHTTPCustomTunnel(server, port.toLong(), user, pass, payload, 1080L, currentMode)
                 handler.post {
-                    if (err != null) {
-                        log("Error SSH: $err")
+                    if (err != null && err.isNotEmpty()) {
+                        log("❌ Error: $err")
                         resetUI()
                     } else {
-                        log("SOCKS5 listo en 127.0.0.1:1080")
+                        log("✅ Conectado! SOCKS5 en 127.0.0.1:1080")
                         // Iniciar VpnService
                         val intent = Intent(this, GhostVpnService::class.java)
                         startForegroundService(intent)
