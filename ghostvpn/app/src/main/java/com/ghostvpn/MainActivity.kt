@@ -35,6 +35,9 @@ class MainActivity : AppCompatActivity() {
         tvStatus = findViewById(R.id.tvStatus)
         tvLog = findViewById(R.id.tvLog)
 
+        // Handle .gv file opened directly
+        handleIntent(intent)
+
         // Toolbar buttons
         findViewById<View>(R.id.btnImport).setOnClickListener { importConfig() }
         findViewById<View>(R.id.btnExport).setOnClickListener { exportConfig() }
@@ -162,7 +165,23 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
     // ─── IMPORT / EXPORT .gv ───
+
+    private fun handleIntent(intent: Intent?) {
+        if (intent?.action == Intent.ACTION_VIEW && intent.data != null) {
+            try {
+                val json = contentResolver.openInputStream(intent.data!!)?.bufferedReader()?.readText() ?: return
+                importFromJson(json)
+            } catch (e: Exception) {
+                log("Error al abrir archivo: ${e.message}")
+            }
+        }
+    }
 
     private fun importConfig() {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
